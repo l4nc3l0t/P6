@@ -3,7 +3,11 @@ import pandas as pd
 import numpy as np
 import ast
 import plotly.express as px
+import string
 import nltk
+
+nltk.download(['punkt', 'stopwords', 'wordnet', 'omw-1.4'],
+              '.env/lib/nltk_data')
 
 # %%
 data = pd.read_csv('./flipkart_com-ecommerce_sample_1050.csv')
@@ -87,9 +91,36 @@ ProdSpecCleanFill.head()
 # utilisation des 3 premières branches de catégories
 TextData = CategoryTree.iloc[:, :3].merge(
     ProdSpecCleanFill, left_index=True,
-    right_index=True).merge(data[['pid', 'description']], left_index=True,
+    right_index=True).merge(data[['pid', 'description']],
+                            left_index=True,
                             right_index=True).set_index('pid').reset_index()
 # %%
 # liste des identifiants produits et des fichiers d'image associés
 ImgList = data[['pid', 'image']]
+# %%
+# tokenisation
+Tokens = {}
+for r in range(len(TextData)):
+    Tokens[TextData.pid[r]] = nltk.word_tokenize(
+        TextData.loc[r, 'description'].lower())
+# %%
+# nettoyage stopwords, ponctuation et nombres
+stopW = nltk.corpus.stopwords.words('english')
+for p in string.punctuation:
+    stopW.append(p)
+TokensClean = {}
+for r in range(len(TextData)):
+    TokensClean[TextData.pid[r]] = [
+        word for word in Tokens[TextData.pid[r]] if not word.isdigit()
+        if word not in stopW
+    ]
+
+# %%
+# lemmatisation
+Lems = {}
+for r in range(len(TextData)):
+    Lems[TextData.pid[r]] = [
+        nltk.WordNetLemmatizer().lemmatize(word)
+        for word in TokensClean[TextData.pid[r]]
+    ]
 # %%
