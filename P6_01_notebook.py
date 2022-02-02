@@ -85,8 +85,9 @@ ProdSpec.isna().sum().sort_values().head(15)
 # conservation des 7 colonnes contenant le plus de données
 ProdSpecClean = ProdSpec[ProdSpec.isna().sum().sort_values().head(
     8).index.drop('unknown').to_list()]
-ProdSpecCleanFill = ProdSpecClean.fillna('unknown')
-ProdSpecCleanFill.head()
+ProdSpecClean.head()
+#ProdSpecCleanFill = ProdSpecClean.fillna('unknown')
+#ProdSpecCleanFill.head()
 # %%
 # utilisation des 3 premières branches de catégories
 TextData = CategoryTree.iloc[:, :3].merge(
@@ -97,17 +98,28 @@ TextData = CategoryTree.iloc[:, :3].merge(
 # %%
 # liste des identifiants produits et des fichiers d'image associés
 ImgList = data[['pid', 'image']]
+
+
 # %%
+# nettoyage ponctuation, nombres
+def clean_text(text):
+    textNpunct = ''.join(
+        [char for char in text if char not in string.punctuation])
+    textNnum = ''.join([char for char in textNpunct if not char.isdigit()])
+    textClean = textNnum
+    return textClean
+
+
+Descriptions = TextData.description.apply(lambda x: clean_text(x))
+# %%
 # tokenisation
 Tokens = {}
 for r in range(len(TextData)):
-    Tokens[TextData.pid[r]] = nltk.word_tokenize(
-        TextData.loc[r, 'description'].lower())
+    Tokens[TextData.pid[r]] = nltk.word_tokenize(Descriptions.loc[r].lower())
 # %%
-# nettoyage stopwords, ponctuation et nombres
+# nettoyage stopwords
 stopW = nltk.corpus.stopwords.words('english')
-for p in string.punctuation:
-    stopW.append(p)
+stopW.append([char for char in string.ascii_lowercase])  # supp lettres uniques
 TokensClean = {}
 for r in range(len(TextData)):
     TokensClean[TextData.pid[r]] = [
@@ -123,4 +135,23 @@ for r in range(len(TextData)):
         nltk.WordNetLemmatizer().lemmatize(word)
         for word in TokensClean[TextData.pid[r]]
     ]
+# %%
+FullTok = []
+for r in range(len(TextData)):
+    for word in [*TokensClean[TextData.pid[r]]]:
+        FullTok.append(word)
+# %%
+FreqFull = pd.DataFrame({
+    'Mot': nltk.FreqDist(FullTok).keys(),
+    'Freq': nltk.FreqDist(FullTok).values()
+})
+FreqFull['Freq_%'] = round(FreqFull.Freq * 100 / FreqFull.Freq.count(), 2)
+FreqFull.sort_values(['Freq'], ascending=False).head(20)
+
+# %%
+fig = px.bar(FreqFull.sort_values(['Freq'], ascending=False).head(50),
+             x='Mot',
+             y='Freq',
+             width=1000)
+fig.show(renderer='notebook')
 # %%
