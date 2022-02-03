@@ -141,15 +141,66 @@ for r in range(len(TextData)):
     Tokens[TextData.pid[r]] = nltk.word_tokenize(Descriptions.loc[r].lower())
 # %%
 # nettoyage stopwords
+stopW = []
 stopW = nltk.corpus.stopwords.words('english')
 stopW.append([char for char in string.ascii_lowercase])  # supp lettres uniques
-TokensClean = {}
+TokensStopW = {}
 for r in range(len(TextData)):
-    TokensClean[TextData.pid[r]] = [
+    TokensStopW[TextData.pid[r]] = [
         word for word in Tokens[TextData.pid[r]] if not word.isdigit()
         if word not in stopW
     ]
 
+# %% [markdown]
+# Visualisation des mots ayant le plus d'occurences dans tout le jeux de données
+# %%
+FullTok = []
+for r in range(len(TextData)):
+    for tok in [*TokensStopW[TextData.pid[r]]]:
+        FullTok.append(tok)
+# %%
+FreqTokFull = pd.DataFrame({
+    'Mots': nltk.FreqDist(FullTok).keys(),
+    'Freq': nltk.FreqDist(FullTok).values()
+})
+FreqTokFull['Freq_%'] = round(FreqTokFull.Freq * 100 / FreqTokFull.Freq.sum(),
+                              2)
+FreqTokFull.sort_values(['Freq'], ascending=False).head(20)
+
+# %%
+# 50 premiers mots
+fig = px.bar(FreqTokFull.sort_values(['Freq'], ascending=False).head(50),
+             x='Mots',
+             y='Freq',
+             width=900,
+             labels={
+                 'Freq': "Nb d'occurences",
+             })
+fig.show(renderer='notebook')
+if write_data is True:
+    fig.write_image('./Figures/FreqTok50.pdf')
+    fig.write_image('./Figures/FreqTok50.pdf')
+# %% [markdown]
+# Nous allons retirer les mots ayant plus de 400 occurences (>0,8%)
+#  car on observe une certaine rupture à ce palier et ces mots concernent 
+# l'aspect commercial et non le produit lui même
+# %%
+if write_data is True:
+    FreqTokFull[FreqTokFull['Freq_%'] > 0.8].Mots.to_latex(
+        './Tableaux/Mots400+.tex', index=False)
+Mots400 = FreqTokFull[FreqTokFull['Freq_%'] > 0.8].sort_values(
+    ['Freq'], ascending=False).Mots.to_list()
+print(Mots400)
+# %%
+stopWtok = []
+stopWtok = stopW
+for word in Mots400:
+    stopWtok.append(word)
+TokensClean = {}
+for r in range(len(TextData)):
+    TokensClean[TextData.pid[r]] = [
+        word for word in TokensStopW[TextData.pid[r]] if word not in stopWtok
+    ]
 # %%
 # lemmatisation
 Lems = {}
@@ -159,29 +210,53 @@ for r in range(len(TextData)):
         for word in TokensClean[TextData.pid[r]]
     ]
 # %% [markdown]
-# Visualisation des mots ayant le plus d'occurences dans tout le jeux de données
+# Visualisation des lemmes ayant le plus d'occurences dans tout le jeux de données
 # %%
-FullTok = []
+FullLem = []
 for r in range(len(TextData)):
-    for word in [*TokensClean[TextData.pid[r]]]:
-        FullTok.append(word)
+    for lem in [*Lems[TextData.pid[r]]]:
+        FullLem.append(lem)
 # %%
-FreqFull = pd.DataFrame({
-    'Mot': nltk.FreqDist(FullTok).keys(),
-    'Freq': nltk.FreqDist(FullTok).values()
+FreqLemFull = pd.DataFrame({
+    'Lemmes': nltk.FreqDist(FullLem).keys(),
+    'Freq': nltk.FreqDist(FullLem).values()
 })
-FreqFull['Freq_%'] = round(FreqFull.Freq * 100 / FreqFull.Freq.sum(), 2)
-FreqFull.sort_values(['Freq'], ascending=False).head(20)
+FreqLemFull['Freq_%'] = round(FreqLemFull.Freq * 100 / FreqLemFull.Freq.sum(),
+                              2)
+FreqLemFull.sort_values(['Freq'], ascending=False).head(20)
 
 # %%
 # 50 premiers mots
-fig = px.bar(FreqFull.sort_values(['Freq'], ascending=False).head(50),
-             x='Mot',
+fig = px.bar(FreqLemFull.sort_values(['Freq'], ascending=False).head(50),
+             x='Lemmes',
              y='Freq',
              width=900,
-             labels={'Freq':"Nb d'occurences", 'Mot':'Mots'})
+             labels={
+                 'Freq': "Nb d'occurences",
+             })
 fig.show(renderer='notebook')
 if write_data is True:
-    fig.write_image('./Figures/FreqTok50.pdf')
-    fig.write_image('./Figures/FreqTok50.pdf')
+    fig.write_image('./Figures/FreqLem50.pdf')
+    fig.write_image('./Figures/FreqLem50.pdf')
+
+# %% [markdown]
+# Nous allons supprimer le lemme ayant plus de 500 occurences (>1%)
+# %%
+if write_data is True:
+    FreqLemFull[FreqLemFull['Freq_%'] > 1].Lemmes.to_latex(
+        './Tableaux/Lemmes1+.tex', index=False)
+Lemmes1 = FreqLemFull[FreqLemFull['Freq_%'] > 1].sort_values(
+    ['Freq'], ascending=False).Lemmes.to_list()
+print(Lemmes1)
+# %%
+stopWlem = []
+stopWlem = stopWtok
+for word in Lemmes1:
+    stopWlem.append(word)
+LemsClean = {}
+for r in range(len(TextData)):
+    LemsClean[TextData.pid[r]] = [
+        word for word in Lems[TextData.pid[r]] if word not in stopWlem
+    ]
+
 # %%
