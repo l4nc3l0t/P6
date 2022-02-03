@@ -182,7 +182,7 @@ if write_data is True:
     fig.write_image('./Figures/FreqTok50.pdf')
 # %% [markdown]
 # Nous allons retirer les mots ayant plus de 400 occurences (>0,8%)
-#  car on observe une certaine rupture à ce palier et ces mots concernent 
+#  car on observe une certaine rupture à ce palier et ces mots concernent
 # l'aspect commercial et non le produit lui même
 # %%
 if write_data is True:
@@ -259,4 +259,76 @@ for r in range(len(TextData)):
         word for word in Lems[TextData.pid[r]] if word not in stopWlem
     ]
 
+# %%
+# racinisation (stemming)
+Stems = {}
+for r in range(len(TextData)):
+    Stems[TextData.pid[r]] = [
+        nltk.stem.PorterStemmer().stem(word)
+        for word in TokensClean[TextData.pid[r]]
+    ]
+# %% [markdown]
+# Visualisation des racines ayant le plus d'occurences dans tout le jeux de données
+# %%
+FullStem = []
+for r in range(len(TextData)):
+    for stem in [*Stems[TextData.pid[r]]]:
+        FullStem.append(stem)
+# %%
+FreqStemFull = pd.DataFrame({
+    'Stemmes': nltk.FreqDist(FullStem).keys(),
+    'Freq': nltk.FreqDist(FullStem).values()
+})
+FreqStemFull['Freq_%'] = round(
+    FreqStemFull.Freq * 100 / FreqStemFull.Freq.sum(), 2)
+FreqStemFull.sort_values(['Freq'], ascending=False).head(20)
+
+# %%
+# 50 premiers mots
+fig = px.bar(FreqStemFull.sort_values(['Freq'], ascending=False).head(50),
+             x='Stemmes',
+             y='Freq',
+             width=900,
+             labels={
+                 'Freq': "Nb d'occurences",
+             })
+fig.show(renderer='notebook')
+if write_data is True:
+    fig.write_image('./Figures/FreqStem50.pdf')
+    fig.write_image('./Figures/FreqStem50.pdf')
+
+# %% [markdown]
+# Nous allons supprimer le stemme ayant plus de 500 occurences (>1%)
+# %%
+if write_data is True:
+    FreqStemFull[FreqStemFull['Freq_%'] > 1].Stemmes.to_latex(
+        './Tableaux/Stemmes1+.tex', index=False)
+Stemmes1 = FreqStemFull[FreqStemFull['Freq_%'] > 1].sort_values(
+    ['Freq'], ascending=False).Stemmes.to_list()
+print(Stemmes1)
+# %%
+stopWstem = []
+stopWstem = stopWtok
+for word in Stemmes1:
+    stopWstem.append(word)
+StemsClean = {}
+for r in range(len(TextData)):
+    StemsClean[TextData.pid[r]] = [
+        word for word in Stems[TextData.pid[r]] if word not in stopWstem
+    ]
+# %%
+# Comparaison texte brute, tokens, lemmatisation, racinisation
+CompareTxt = pd.DataFrame({
+    'Modification':
+    ['Texte brut', 'Tokenisation', 'Lemmatisation', 'Racinisation'],
+    'Contenu': [
+        TextData.description[0],
+        ' '.join(tok for tok in TokensClean[TextData.pid[0]]),
+        ' '.join(lem for lem in LemsClean[TextData.pid[0]]),
+        ' '.join(stem for stem in StemsClean[TextData.pid[0]])
+    ]
+})
+if write_data is True:
+    CompareTxt.to_latex('./Tableaux/CompareTxt.tex', index=False)
+CompareTxt
 # %%
