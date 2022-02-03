@@ -181,20 +181,20 @@ if write_data is True:
     fig.write_image('./Figures/FreqTok50.pdf')
     fig.write_image('./Figures/FreqTok50.pdf')
 # %% [markdown]
-# Nous allons retirer les mots ayant plus de 400 occurences (>0,8%)
-#  car on observe une certaine rupture à ce palier et ces mots concernent
-# l'aspect commercial et non le produit lui même
+# Nous allons retirer les mots ayant plus de 400 occurences (> 0,8%)
+# car on observe une certaine rupture à ce palier et ces mots concernent
+# l'aspect commercial et non le produit lui même. Nous allons conserverons
+# que les mots ayant au moins 4 occurences (>= 0.01%)
 # %%
 if write_data is True:
     FreqTokFull[FreqTokFull['Freq_%'] > 0.8].Mots.to_latex(
         './Tableaux/Mots400+.tex', index=False)
-Mots400 = FreqTokFull[FreqTokFull['Freq_%'] > 0.8].sort_values(
-    ['Freq'], ascending=False).Mots.to_list()
-print(Mots400)
+FiltMots = FreqTokFull[(FreqTokFull['Freq_%'] > 0.8) |
+                       (FreqTokFull['Freq'] < 3)].Mots.to_list()
 # %%
 stopWtok = []
 stopWtok = stopW
-for word in Mots400:
+for word in FiltMots:
     stopWtok.append(word)
 TokensClean = {}
 for r in range(len(TextData)):
@@ -240,12 +240,12 @@ if write_data is True:
     fig.write_image('./Figures/FreqLem50.pdf')
 
 # %% [markdown]
-# Nous allons supprimer le lemme ayant plus de 500 occurences (>1%)
+# Nous allons supprimer le lemme ayant plus de 500 occurences (> 1.3%)
 # %%
 if write_data is True:
-    FreqLemFull[FreqLemFull['Freq_%'] > 1].Lemmes.to_latex(
+    FreqLemFull[FreqLemFull['Freq'] > 500].Lemmes.to_latex(
         './Tableaux/Lemmes1+.tex', index=False)
-Lemmes1 = FreqLemFull[FreqLemFull['Freq_%'] > 1].sort_values(
+Lemmes1 = FreqLemFull[FreqLemFull['Freq'] > 500].sort_values(
     ['Freq'], ascending=False).Lemmes.to_list()
 print(Lemmes1)
 # %%
@@ -298,12 +298,12 @@ if write_data is True:
     fig.write_image('./Figures/FreqStem50.pdf')
 
 # %% [markdown]
-# Nous allons supprimer le stemme ayant plus de 500 occurences (>1%)
+# Nous allons supprimer le stemme ayant plus de 500 occurences (> 1.3%)
 # %%
 if write_data is True:
-    FreqStemFull[FreqStemFull['Freq_%'] > 1].Stemmes.to_latex(
+    FreqStemFull[FreqStemFull['Freq'] > 500].Stemmes.to_latex(
         './Tableaux/Stemmes1+.tex', index=False)
-Stemmes1 = FreqStemFull[FreqStemFull['Freq_%'] > 1].sort_values(
+Stemmes1 = FreqStemFull[FreqStemFull['Freq'] > 500].sort_values(
     ['Freq'], ascending=False).Stemmes.to_list()
 print(Stemmes1)
 # %%
@@ -331,4 +331,45 @@ CompareTxt = pd.DataFrame({
 if write_data is True:
     CompareTxt.to_latex('./Tableaux/CompareTxt.tex', index=False)
 CompareTxt
+# %%
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+# %%
+corporaTok = []
+for r in range(len(TextData)):
+    corporaTok.append(' '.join(tok for tok in TokensClean[TextData.pid[r]]))
+# %%
+# tfidf
+tfidfvec = TfidfVectorizer()
+tfidfTok = tfidfvec.fit_transform(corporaTok)
+tfidfTokDF = pd.DataFrame(tfidfTok.toarray(), TextData.pid,
+                          tfidfvec.get_feature_names_out())
+# %%
+from sklearn.manifold import TSNE
+
+tsnetfidfTok = TSNE(n_components=3,
+                    perplexity=30,
+                    learning_rate='auto',
+                    init='pca',
+                    n_jobs=-1).fit_transform(tfidfTokDF)
+# %%
+fig = px.scatter_3d(tsnetfidfTok, x=0, y=1, z=2, color=TextData.category_0)
+fig.show(renderer='notebook')
+
+# %%
+# CountVect
+countvect = CountVectorizer()
+countvectTok = countvect.fit_transform(corporaTok)
+countvectTokDF = pd.DataFrame(countvectTok.toarray(), TextData.pid,
+                              countvect.get_feature_names_out())
+
+# %%
+tsnecountvectTok = TSNE(n_components=3,
+                        perplexity=30,
+                        learning_rate='auto',
+                        init='pca',
+                        n_jobs=-1).fit_transform(countvectTokDF)
+
+# %%
+fig = px.scatter_3d(tsnecountvectTok, x=0, y=1, z=2, color=TextData.category_0)
+fig.show(renderer='notebook')
 # %%
