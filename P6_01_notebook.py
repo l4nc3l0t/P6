@@ -197,13 +197,13 @@ if write_data is True:
 # Nous allons retirer les mots ayant plus de 400 occurences (> 0,8%)
 # car on observe une certaine rupture à ce palier et ces mots concernent
 # l'aspect commercial et non le produit lui même. Nous allons conserverons
-# que les mots ayant au moins 3 occurences (>= 0.01%)
+# que les mots ayant au moins 4 occurences (>= 0.01%)
 # %%
 if write_data is True:
     FreqTokFull[FreqTokFull['Freq'] > 400].Tokens.to_latex(
         './Tableaux/Mots400+.tex', index=False)
 FiltMots = FreqTokFull[(FreqTokFull['Freq'] > 400) |
-                       (FreqTokFull['Freq'] < 3)].Tokens.to_list()
+                       (FreqTokFull['Freq'] < 4)].Tokens.to_list()
 # %%
 TokensClean = cleanStopW(TokensStopW, stopW, FiltMots)
 # %%
@@ -319,8 +319,8 @@ def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
                                 z=2,
                                 color=TextData.category_0,
                                 opacity=1,
-                                title='t-SNE {}'.format(
-                                    str(vec).replace('()', '')))
+                                title='t-SNE {} {}'.format(
+                                    str(vec).replace('()', ''), TokenType))
         tsnefig.update_traces(marker_size=4)
         tsnefig.update_layout(legend={'itemsizing': 'constant'})
         tsnefig.show(renderer='notebook')
@@ -336,8 +336,7 @@ def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
                                   y=1,
                                   z=2,
                                   title='KMeans {} {}'.format(
-                                      TokenType,
-                                      str(vec).replace('()', '')),
+                                      str(vec).replace('()', ''), TokenType),
                                   color=vecKMeans.labels_.astype(str))
         kmeansfig.update_traces(marker_size=4)
         kmeansfig.update_layout(legend={'itemsizing': 'constant'})
@@ -381,3 +380,33 @@ TokLabels, TokScores = clustering(
 # %%
 print(TokScores)
 # %%
+corporaLem = []
+for r in range(len(TextData)):
+    corporaLem.append(' '.join(lem for lem in LemsClean[TextData.pid[r]]))
+# %%
+LemLabels, LemScores = clustering(
+    corporaLem,
+    [
+        TfidfVectorizer(),
+        CountVectorizer(),
+        # HashingVectorizer()
+    ],
+    'Lemmes')
+# %%
+print(LemScores)
+# %%
+corporaStem = []
+for r in range(len(TextData)):
+    corporaStem.append(' '.join(stem for stem in StemsClean[TextData.pid[r]]))
+# %%
+StemLabels, StemScores = clustering(
+    corporaStem,
+    [
+        TfidfVectorizer(),
+        CountVectorizer(),
+        # HashingVectorizer()
+    ],
+    'Racines')
+# %%
+print(StemScores)
+# %%
