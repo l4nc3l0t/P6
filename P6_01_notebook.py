@@ -197,13 +197,13 @@ if write_data is True:
 # Nous allons retirer les mots ayant plus de 400 occurences (> 0,8%)
 # car on observe une certaine rupture à ce palier et ces mots concernent
 # l'aspect commercial et non le produit lui même. Nous allons conserverons
-# que les mots ayant au moins 4 occurences (>= 0.01%)
+# que les mots ayant au moins 3 occurences (>= 0.01%)
 # %%
 if write_data is True:
     FreqTokFull[FreqTokFull['Freq'] > 400].Tokens.to_latex(
         './Tableaux/Mots400+.tex', index=False)
 FiltMots = FreqTokFull[(FreqTokFull['Freq'] > 400) |
-                       (FreqTokFull['Freq'] < 4)].Tokens.to_list()
+                       (FreqTokFull['Freq'] < 3)].Tokens.to_list()
 # %%
 TokensClean = cleanStopW(TokensStopW, stopW, FiltMots)
 # %%
@@ -274,7 +274,7 @@ CompareTxt = pd.DataFrame({
 if write_data is True:
     CompareTxt.to_latex('./Tableaux/CompareTxt.tex', index=False)
 CompareTxt
-# %%
+# %%
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer, \
                                             HashingVectorizer
 from sklearn.decomposition import PCA
@@ -282,6 +282,16 @@ from sklearn.manifold import TSNE
 from sklearn.preprocessing import LabelEncoder
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
+from sklearn.utils import column_or_1d
+
+
+class MyLabelEncoder(LabelEncoder):
+
+    def fit(self, y):
+        y = column_or_1d(y, warn=True)
+        self.classes_ = pd.Series(y).unique()
+        return self
+
 
 # %%
 corporaTok = []
@@ -291,92 +301,133 @@ for r in range(len(TextData)):
 
 # %%
 def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
-    Scores = {}
-    for vec in vectorizer:
-        vectorizedTok = vec.fit_transform(corpora)
-        if str(vec) == str(HashingVectorizer()):
-            vectorizedTokDF = pd.DataFrame(vectorizedTok, TextData.pid)
-        else:
-            vectorizedTokDF = pd.DataFrame(vectorizedTok.toarray(),
-                                           TextData.pid,
-                                           vec.get_feature_names_out())
+    Labels = {}
 
-        pca = PCA(n_components=.98)
-        vecTokPCA = pca.fit_transform(vectorizedTokDF)
-        print('Réduction de dimensions : {} vs {}'.format(
-            pca.n_components_, pca.n_features_))
+    color_discrete_map = {}
+    category_orders = TextData.category_0.sort_values().unique()
+    perplexity = [10, 20, 30, 40, 50]
+    for cat, col in zip(TextData.category_0.unique(),
+                        px.colors.qualitative.D3[0:6]):
+        color_discrete_map[cat] = col
 
-        tsneVTok = TSNE(n_components=3,
-                        perplexity=40,
-                        learning_rate='auto',
-                        random_state=0,
-                        init='pca',
-                        n_jobs=-1).fit_transform(vecTokPCA)
+    Scores = pd.DataFrame(columns=['Vectorizer', 'perplexityTSNE', 'ARI'])
+    i = 0
 
-        tsnefig = px.scatter_3d(tsneVTok,
-                                x=0,
-                                y=1,
-                                z=2,
-                                color=TextData.category_0,
-                                opacity=1,
-                                title='t-SNE {} {}'.format(
-                                    str(vec).replace('()', ''), TokenType))
-        tsnefig.update_traces(marker_size=4)
-        tsnefig.update_layout(legend={'itemsizing': 'constant'})
-        tsnefig.show(renderer='notebook')
-        if write_data is True:
-            tsnefig.write_image('./Figures/tsne{}{}.pdf'.format(
-                TokenType,
-                str(vec).replace('()', '')))
+    for p in perplexity:
+        for vec in vectorizer:
+            if str(vec) == str(HashingVectorizer()):
+                cv = CountVectorizer()
+                vec = HashingVectorizer(
+                    n_features=cv.fit_transform(corpora).get_shape()[1])
+                vectorizedTok = vec.fit_transform(corpora)
+                vectorizedTokDF = pd.DataFrame(vectorizedTok.toarray(),
+                                               TextData.pid,
+                                               cv.get_feature_names_out())
+            else:
+                vectorizedTok = vec.fit_transform(corpora)
+                vectorizedTokDF = pd.DataFrame(vectorizedTok.toarray(),
+                                               TextData.pid,
+                                               vec.get_feature_names_out())
 
-        vecKMeans = KMeans(n_clusters=7, random_state=0).fit(tsneVTok)
+            pca = PCA(n_components=.98, random_state=0)
+            vecTokPCA = pca.fit_transform(vectorizedTokDF)
+            print('Réduction de dimensions : {} vs {}'.format(
+                pca.n_components_, pca.n_features_))
 
-        kmeansfig = px.scatter_3d(tsneVTok,
-                                  x=0,
-                                  y=1,
-                                  z=2,
-                                  title='KMeans {} {}'.format(
-                                      str(vec).replace('()', ''), TokenType),
-                                  color=vecKMeans.labels_.astype(str))
-        kmeansfig.update_traces(marker_size=4)
-        kmeansfig.update_layout(legend={'itemsizing': 'constant'})
-        kmeansfig.show(renderer='notebook')
-        if write_data is True:
-            kmeansfig.write_image('./Figures/kmean{}{}.pdf'.format(
-                TokenType,
-                str(vec).replace('()', '')))
+            tsneVTok = TSNE(n_components=2,
+                            perplexity=p,
+                            learning_rate='auto',
+                            random_state=0,
+                            init='pca',
+                            n_jobs=-1).fit_transform(vecTokPCA)
 
-        le = LabelEncoder()
-        le.fit(TextData.category_0)
-        Labels = pd.DataFrame({
-            'Catégories Réelles':
-            TextData.category_0,
-            'Labels réels':
-            le.transform(TextData.category_0),
-            'Catégories KMeans':
-            le.inverse_transform(vecKMeans.labels_),
-            'KMeans labels':
-            vecKMeans.labels_
-        })
+            tsnefig = px.scatter(tsneVTok,
+                                 x=0,
+                                 y=1,
+                                 color=TextData.category_0,
+                                 color_discrete_map=color_discrete_map,
+                                 category_orders={'color': category_orders},
+                                 labels={'color': 'Catégories'},
+                                 opacity=1,
+                                 title='t-SNE{} {} {}'.format(
+                                     p,
+                                     str(vec).split('(')[0], TokenType))
+            tsnefig.update_traces(marker_size=4)
+            tsnefig.update_layout(legend={'itemsizing': 'constant'})
+            tsnefig.show(renderer='notebook')
+            if write_data is True:
+                tsnefig.write_image('./Figures/tsne{}{}{}.pdf'.format(
+                    p, TokenType,
+                    str(vec).split('(')[0]))
 
-        ARI = adjusted_rand_score(Labels['Labels réels'],
-                                  Labels['KMeans labels'])
+            vecKMeans = KMeans(n_clusters=7, random_state=0).fit(tsneVTok)
 
-        Scores[str(vec).replace('()', '')] = ARI
-        print('ARI :{}'.format(ARI))
+            LabelsDF = pd.DataFrame({
+                'Catégories réelles': TextData.category_0,
+                'Labels KMeans': vecKMeans.labels_
+            })
+            labelsGroups = LabelsDF.groupby(
+                ['Catégories réelles'])['Labels KMeans'].value_counts()
+            LabelsClean = labelsGroups.groupby(
+                level=0).max().sort_values().reset_index().join(
+                    pd.Series(labelsGroups.groupby(
+                        level=1).max().sort_values().index.to_list(),
+                              name='Label maj')).rename(
+                                  columns={
+                                      'Labels KMeans': 'Nb prod/label'
+                                  }).sort_values('Label maj')
+            print(LabelsClean)
+            #print(labelsGroups)
 
-    return (Labels, Scores)
+            le = MyLabelEncoder()
+            le.fit(LabelsClean['Catégories réelles'])
+
+            LabelsDF['Labels réels'] = le.transform(
+                LabelsDF['Catégories réelles'])
+            LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                LabelsDF['Labels KMeans'])
+            LabelsDF.reindex(columns=[
+                'Catégories réelles', 'Labels réels', 'Labels KMeans',
+                'Catégories KMeans'
+            ])
+
+            ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                      LabelsDF['Labels KMeans'])
+
+            Scores.loc[i, 'Vectorizer'] = str(vec).split('(')[0]
+            Scores.loc[i, 'perplexityTSNE'] = str(p)
+            Scores.loc[i, 'ARI'] = ARI
+            Scores.loc[i, 'TokenType'] = TokenType
+            i += 1
+
+            kmeansfig = px.scatter(tsneVTok,
+                                   x=0,
+                                   y=1,
+                                   title='KMeans t-SNE{} {} {}'.format(
+                                       p,
+                                       str(vec).split('(')[0], TokenType),
+                                   color=LabelsDF['Catégories KMeans'],
+                                   color_discrete_map=color_discrete_map,
+                                   category_orders={'color': category_orders},
+                                   labels={'color': 'Catégories'})
+            kmeansfig.update_traces(marker_size=4)
+            kmeansfig.update_layout(legend={'itemsizing': 'constant'})
+            kmeansfig.show(renderer='notebook')
+            if write_data is True:
+                kmeansfig.write_image('./Figures/kmean{}{}{}.pdf'.format(
+                    p, TokenType,
+                    str(vec).split('(')[0]))
+
+            print('ARI :{}'.format(ARI))
+
+    return (Scores)
 
 
 # %%
-TokLabels, TokScores = clustering(
-    corporaTok,
-    [
-        TfidfVectorizer(),
-        CountVectorizer(),
-        # HashingVectorizer()
-    ],
-    'Tokens')
+TokScores = clustering(
+    corporaTok, [TfidfVectorizer(),
+                 CountVectorizer(),
+                 HashingVectorizer()], 'Tokens')
 # %%
 print(TokScores)
 # %%
@@ -384,14 +435,10 @@ corporaLem = []
 for r in range(len(TextData)):
     corporaLem.append(' '.join(lem for lem in LemsClean[TextData.pid[r]]))
 # %%
-LemLabels, LemScores = clustering(
-    corporaLem,
-    [
-        TfidfVectorizer(),
-        CountVectorizer(),
-        # HashingVectorizer()
-    ],
-    'Lemmes')
+LemScores = clustering(
+    corporaLem, [TfidfVectorizer(),
+                 CountVectorizer(),
+                 HashingVectorizer()], 'Lemmes')
 # %%
 print(LemScores)
 # %%
@@ -399,14 +446,27 @@ corporaStem = []
 for r in range(len(TextData)):
     corporaStem.append(' '.join(stem for stem in StemsClean[TextData.pid[r]]))
 # %%
-StemLabels, StemScores = clustering(
-    corporaStem,
-    [
-        TfidfVectorizer(),
-        CountVectorizer(),
-        # HashingVectorizer()
-    ],
-    'Racines')
+StemScores = clustering(
+    corporaStem, [TfidfVectorizer(),
+                  CountVectorizer(),
+                  HashingVectorizer()], 'Racines')
 # %%
 print(StemScores)
-# %%
+
+# %%
+ScoresFull = TokScores.merge(LemScores,
+                             on=TokScores.columns.to_list(),
+                             how='outer').merge(StemScores,
+                                                on=TokScores.columns.to_list(),
+                                                how='outer')
+# %%
+fig = px.bar(ScoresFull,
+             x='perplexityTSNE',
+             y='ARI',
+             color='Vectorizer',
+             facet_col='TokenType',
+             barmode='group')
+fig.show(renderer='notebook')
+if write_data is True:
+    fig.write_image('./Figures/CompareScores.pdf')
+# %%
