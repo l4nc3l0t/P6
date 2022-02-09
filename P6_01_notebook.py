@@ -10,6 +10,24 @@ import nltk
 nltk.download(['punkt', 'stopwords', 'wordnet', 'omw-1.4'],
               '.env/lib/nltk_data')
 
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer, \
+                                            HashingVectorizer
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.preprocessing import LabelEncoder
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score, confusion_matrix
+from sklearn.utils import column_or_1d
+
+
+class MyLabelEncoder(LabelEncoder):
+
+    def fit(self, y):
+        y = column_or_1d(y, warn=True)
+        self.classes_ = pd.Series(y).unique()
+        return self
+
+
 # %%
 write_data = True
 
@@ -152,7 +170,7 @@ def cleanStopW(List, stopW=[], addtolist=[], index=TextData.pid):
             word for word in List[index[r]] if not word.isdigit()
             if word not in stopW
         ]
-    return (ListClean)
+    return ListClean
 
 
 # %%
@@ -183,7 +201,7 @@ def visuWordList(Words, listname='Tokens'):
                  labels={
                      'Freq': "Nb d'occurences",
                  })
-    return (FullW, FreqWFull, fig)
+    return FullW, FreqWFull, fig
 
 
 # %%
@@ -274,38 +292,17 @@ CompareTxt = pd.DataFrame({
 if write_data is True:
     CompareTxt.to_latex('./Tableaux/CompareTxt.tex', index=False)
 CompareTxt
-# %%
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer, \
-                                            HashingVectorizer
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
-from sklearn.preprocessing import LabelEncoder
-from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score
-from sklearn.utils import column_or_1d
-
-
-class MyLabelEncoder(LabelEncoder):
-
-    def fit(self, y):
-        y = column_or_1d(y, warn=True)
-        self.classes_ = pd.Series(y).unique()
-        return self
-
 
 # %%
-corporaTok = []
-for r in range(len(TextData)):
-    corporaTok.append(' '.join(tok for tok in TokensClean[TextData.pid[r]]))
-
-
-# %%
-def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
+def clustering(corpora,
+               vectorizer=[TfidfVectorizer()],
+               TokenType=None,
+               perplexity=[10, 20, 30, 40, 50],
+               n_componentsPCA=0.98):
     Labels = {}
 
     color_discrete_map = {}
     category_orders = TextData.category_0.sort_values().unique()
-    perplexity = [10, 20, 30, 40, 50]
     for cat, col in zip(TextData.category_0.unique(),
                         px.colors.qualitative.D3[0:6]):
         color_discrete_map[cat] = col
@@ -329,7 +326,7 @@ def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
                                                TextData.pid,
                                                vec.get_feature_names_out())
 
-            pca = PCA(n_components=.98, random_state=0)
+            pca = PCA(n_components=n_componentsPCA, random_state=0)
             vecTokPCA = pca.fit_transform(vectorizedTokDF)
             print('Réduction de dimensions : {} vs {}'.format(
                 pca.n_components_, pca.n_features_))
@@ -370,12 +367,13 @@ def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
                 ['Catégories réelles'])['Labels KMeans'].value_counts()
             LabelsClean = labelsGroups.groupby(
                 level=0).max().sort_values().reset_index().join(
-                    pd.Series(labelsGroups.groupby(
-                        level=1).max().sort_values().index.to_list(),
-                              name='Label maj')).rename(
-                                  columns={
-                                      'Labels KMeans': 'Nb prod/label'
-                                  }).sort_values('Label maj')
+                    pd.Series(
+                        labelsGroups.groupby(
+                            level=1).max().sort_values().index.to_list(),
+                        name='Label maj')).rename(
+                            columns={
+                                'Labels KMeans': 'Nb prod/label'
+                            }).sort_values('Label maj').reset_index(drop=True)
             print(LabelsClean)
             #print(labelsGroups)
 
@@ -390,6 +388,26 @@ def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
                 'Catégories réelles', 'Labels réels', 'Labels KMeans',
                 'Catégories KMeans'
             ])
+
+            CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                  LabelsDF['Catégories réelles'])
+            fig = px.imshow(
+                CM,
+                x=category_orders,
+                y=category_orders,
+                text_auto=True,
+                color_continuous_scale='balance',
+                title=
+                'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {} {}'
+                .format(p,
+                        str(vec).split('(')[0], TokenType))
+            fig.update_layout(plot_bgcolor='white')
+            fig.update_coloraxes(showscale=False)
+            fig.show(renderer='notebook')
+            if write_data is True:
+                fig.write_image('./Figures/HeatmapLabels{}{}{}.pdf'.format(
+                    p, TokenType,
+                    str(vec).split('(')[0]))
 
             ARI = adjusted_rand_score(LabelsDF['Labels réels'],
                                       LabelsDF['Labels KMeans'])
@@ -420,9 +438,12 @@ def clustering(corpora, vectorizer=[TfidfVectorizer()], TokenType=None):
 
             print('ARI :{}'.format(ARI))
 
-    return (Scores)
+    return Scores
 
-
+# %%
+corporaTok = []
+for r in range(len(TextData)):
+    corporaTok.append(' '.join(tok for tok in TokensClean[TextData.pid[r]]))
 # %%
 TokScores = clustering(
     corporaTok, [TfidfVectorizer(),
