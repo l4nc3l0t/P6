@@ -209,6 +209,8 @@ FullTok, FreqTokFull, fig = visuWordList(TokensStopW)
 fig.show(renderer='notebook')
 if write_data is True:
     fig.write_image('./Figures/FreqTok50.pdf')
+FullTok, FreqTokFull, fig = visuWordList(TokensStopW)
+if write_data is True:
     fig.write_image('./Figures/FreqTok50.pdf')
 
 # %% [markdown]
@@ -293,6 +295,7 @@ if write_data is True:
     CompareTxt.to_latex('./Tableaux/CompareTxt.tex', index=False)
 CompareTxt
 
+
 # %%
 def clustering(corpora,
                vectorizer=[TfidfVectorizer()],
@@ -344,7 +347,11 @@ def clustering(corpora,
                                  color=TextData.category_0,
                                  color_discrete_map=color_discrete_map,
                                  category_orders={'color': category_orders},
-                                 labels={'color': 'Catégories'},
+                                 labels={
+                                     'color': 'Catégories',
+                                     '0': 'tSNE1',
+                                     '1': 'tSNE2'
+                                 },
                                  opacity=1,
                                  title='t-SNE{} {} {}'.format(
                                      p,
@@ -397,6 +404,11 @@ def clustering(corpora,
                 y=category_orders,
                 text_auto=True,
                 color_continuous_scale='balance',
+                labels={
+                    'x': 'Catégorie prédite',
+                    'y': 'Catégorie réelle',
+                    'color': 'Nb produits'
+                },
                 title=
                 'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {} {}'
                 .format(p,
@@ -427,7 +439,11 @@ def clustering(corpora,
                                    color=LabelsDF['Catégories KMeans'],
                                    color_discrete_map=color_discrete_map,
                                    category_orders={'color': category_orders},
-                                   labels={'color': 'Catégories'})
+                                   labels={
+                                       'color': 'Catégories',
+                                       '0': 'tSNE1',
+                                       '1': 'tSNE2'
+                                   })
             kmeansfig.update_traces(marker_size=4)
             kmeansfig.update_layout(legend={'itemsizing': 'constant'})
             kmeansfig.show(renderer='notebook')
@@ -439,6 +455,7 @@ def clustering(corpora,
             print('ARI :{}'.format(ARI))
 
     return Scores
+
 
 # %%
 corporaTok = []
@@ -481,12 +498,15 @@ ScoresFull = TokScores.merge(LemScores,
                                                 on=TokScores.columns.to_list(),
                                                 how='outer')
 # %%
-fig = px.bar(ScoresFull,
-             x='perplexityTSNE',
-             y='ARI',
-             color='Vectorizer',
-             facet_col='TokenType',
-             barmode='group')
+fig = px.bar(
+    ScoresFull,
+    x='perplexityTSNE',
+    y='ARI',
+    color='Vectorizer',
+    facet_col='TokenType',
+    barmode='group',
+    title=
+    'Comparaison des scores en fonction<br>du vectoriseur et de la perplexité')
 fig.show(renderer='notebook')
 if write_data is True:
     fig.write_image('./Figures/CompareScores.pdf')
