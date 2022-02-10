@@ -517,7 +517,7 @@ for r in range(len(TextData)):
 LemScores = clustering(
     corporaLem, [TfidfVectorizer(),
                  CountVectorizer(),
-                 HashingVectorizer()], 'Lemmes')
+                 HashingVectorizer(n_features=2**15)], 'Lemmes')
 # %%
 print(LemScores)
 # %%
@@ -542,7 +542,7 @@ for r in range(len(TextData)):
 StemScores = clustering(
     corporaStem, [TfidfVectorizer(),
                   CountVectorizer(),
-                  HashingVectorizer()], 'Racines')
+                  HashingVectorizer(n_features=2**15)], 'Racines')
 # %%
 print(StemScores)
 # %%
