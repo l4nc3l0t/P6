@@ -7,3 +7,5 @@ sklearn
 statsmodels
 kaleido
 nltk
+opencv-python
+opencv-contrib-python
