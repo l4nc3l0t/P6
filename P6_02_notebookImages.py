@@ -10,7 +10,7 @@ import cv2 as cv
 
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, confusion_matrix
 from sklearn.utils import column_or_1d
@@ -69,7 +69,7 @@ DataImages['path'] = ['./Images/' + name for name in DataImages.image]
 # %%
 # test ouverture image
 fig = px.imshow(cv.imread(DataImages.path[0]))
-fig.show(renderer='notebook')
+fig.show(renderer='jpeg')
 # %%
 DataImages['height'] = [cv.imread(p).shape[0] for p in DataImages.path]
 DataImages['width'] = [cv.imread(p).shape[1] for p in DataImages.path]
@@ -188,6 +188,7 @@ if write_data is True:
 # Nous utiliserons ces traitements pour l'ensemble des images
 # %% [markdown]
 #### Création des images traitées
+# %%
 def ImgPreprocessing(imgPath, imgName):
     ImagesPreproc = {}
     if write_data is True:
@@ -211,85 +212,231 @@ def ImgPreprocessing(imgPath, imgName):
 # %%
 ImagesPreproc = ImgPreprocessing(DataImages.path, DataImages.image)
 # %% [markdown]
-#### SIFT
+#### Essais SIFT et ORB
 # %%
-img = ImagesPreproc[DataImages.image[0]]
-sift = cv.SIFT_create()
-kp, des = sift.detectAndCompute(img, None)
-imgKP = cv.drawKeypoints(img,
-                         kp,
-                         None,
-                         flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-fig = px.imshow(imgKP)
-fig.update_layout(coloraxis_showscale=False)
-fig.update_xaxes(showticklabels=False)
-fig.update_yaxes(showticklabels=False)
-fig.show(renderer='jpeg')
-if write_data is True:
-    fig.write_image('./Figures/imgKP.pdf')
-# %%
-Descriptors = {}
-BoVW = []
-for key, value in ImagesPreproc.items():
-    kp, des = sift.detectAndCompute(value, None)
-    Descriptors[key] = des
-    if len(BoVW) == 0:
-        BoVW = des
-    else:
-        BoVW = np.vstack((BoVW, des))
-print(BoVW.shape)
-# %%
-idx = []
-for i in DataImages.image:
-    idx.extend(len(Descriptors[i]) * [i])
-BoVWDF = pd.DataFrame(
-    BoVW, index=idx).reset_index().rename(columns={'index': 'ImgName'})
-# %%
-# Clustering
-criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 0.01)
-flags = cv.KMEANS_PP_CENTERS
-compactness, labels, centers = cv.kmeans(BoVW, 1000, None, criteria, 3, flags)
+def clustering(Algo,
+               perplexity=[10, 20, 30, 40, 50, 60, 70, 80],
+               n_componentsPCA=0.98):
+    Labels = {}
+
+    color_discrete_map = {}
+    category_orders = DataImages.category_0.sort_values().unique()
+    for cat, col in zip(DataImages.category_0.unique(),
+                        px.colors.qualitative.D3[0:6]):
+        color_discrete_map[cat] = col
+
+    Scores = pd.DataFrame(columns=['perplexityTSNE', 'ARI'])
+    row = 0
+    for a in Algo:
+        img = ImagesPreproc[DataImages.image[0]]
+        if a == 'ORB':
+            orb = cv.ORB_create(nfeatures=1000)
+            kp, des = orb.detectAndCompute(img, None)
+        if a == 'SIFT':
+            sift = cv.SIFT_create()
+            kp, des = sift.detectAndCompute(img, None)
+
+        imgKP = cv.drawKeypoints(img, kp, None)
+        figKP = px.imshow(imgKP)
+        figKP.update_layout(coloraxis_showscale=False)
+        figKP.update_xaxes(showticklabels=False)
+        figKP.update_yaxes(showticklabels=False)
+        figKP.show(renderer='jpeg')
+        if write_data is True:
+            figKP.write_image('./Figures/{}imgKP.pdf'.format(a))
+
+        Descriptors = {}
+        BoVW = []
+        for key, value in ImagesPreproc.items():
+            if a == 'ORB':
+                kp, des = orb.detectAndCompute(value, None)
+            if a == 'SIFT':
+                kp, des = sift.detectAndCompute(value, None)
+            Descriptors[key] = des
+            if len(BoVW) == 0:
+                BoVW = des
+            elif des is None:
+                BoVW = np.vstack((BoVW, len(BoVW[0]) * [0]))
+            else:
+                BoVW = np.vstack((BoVW, des))
+        print(BoVW.shape)
+        BoVW = np.float32(BoVW)
+
+        idx = []
+        for i in DataImages.image:
+            if Descriptors[i] is None:
+                idx.extend([i])
+            else:
+                idx.extend(len(Descriptors[i]) * [i])
+        BoVWDF = pd.DataFrame(
+            BoVW, index=idx).reset_index().rename(columns={'index': 'ImgName'})
+
+        # Clustering
+        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1)
+        flags = cv.KMEANS_PP_CENTERS
+        compactness, labels, centers = cv.kmeans(BoVW, 1000, None, criteria, 1,
+                                                 flags)
+
+        Lab = pd.DataFrame(labels.ravel(), index=idx, columns=[
+            'label'
+        ]).reset_index().rename(columns={'index': 'ImgName'})
+
+        LabClean = Lab.groupby('ImgName').value_counts().reset_index().pivot(
+            index='ImgName', columns='label', values=0).fillna(0)
+        LabClean.columns.name = None
+        LabClean.head(5)
+
+        category = []
+        for i in LabClean.index:
+            category.extend(
+                DataImages[DataImages.image == i].category_0.to_list())
+
+        # histogramme des descripteurs
+        fig = px.bar(LabClean.iloc[0],
+                     x=LabClean.iloc[0].index,
+                     y=LabClean.iloc[0].values,
+                     labels={
+                         'index': 'Visual word',
+                         'y': 'Fréquence'
+                     },
+                     width=1000,
+                     height=300,
+                     title='Histogramme des visuals words {}'.format(a))
+        fig.show(renderer='jpeg')
+
+        LabClean_scaled = StandardScaler().fit_transform(LabClean)
+        for p in perplexity:
+            pca = PCA(n_components=n_componentsPCA, random_state=0)
+            LabPCA = pca.fit_transform(LabClean_scaled)
+            print('Réduction de dimensions : {} vs {}'.format(
+                pca.n_components_, pca.n_features_))
+
+            tsneLab = TSNE(n_components=2,
+                           perplexity=p,
+                           learning_rate='auto',
+                           random_state=0,
+                           init='pca',
+                           n_jobs=-1).fit_transform(LabPCA)
+
+            tsnefig = px.scatter(tsneLab,
+                                 x=0,
+                                 y=1,
+                                 color=category,
+                                 color_discrete_map=color_discrete_map,
+                                 category_orders={'color': category_orders},
+                                 labels={
+                                     'color': 'Catégories',
+                                     '0': 'tSNE1',
+                                     '1': 'tSNE2'
+                                 },
+                                 opacity=1,
+                                 title='t-SNE{} {}'.format(p, a))
+            tsnefig.update_traces(marker_size=4)
+            tsnefig.update_layout(legend={'itemsizing': 'constant'})
+            tsnefig.show(renderer='jpeg')
+            if write_data is True:
+                tsnefig.write_image('./Figures/tsne{}{}.pdf'.format(p, a))
+
+            LabKMeans = KMeans(n_clusters=7, random_state=0).fit(tsneLab)
+
+            LabelsDF = pd.DataFrame({
+                'Catégories réelles': category,
+                'Labels KMeans': LabKMeans.labels_
+            })
+            labelsGroups = LabelsDF.groupby(
+                ['Catégories réelles'])['Labels KMeans'].value_counts()
+            LabelsClean = labelsGroups.groupby(
+                level=0).max().sort_values().reset_index().join(
+                    pd.Series(
+                        labelsGroups.groupby(
+                            level=1).max().sort_values().index.to_list(),
+                        name='Label maj')).rename(
+                            columns={
+                                'Labels KMeans': 'Nb prod/label'
+                            }).sort_values('Label maj').reset_index(drop=True)
+            print(LabelsClean)
+            #print(labelsGroups)
+
+            le = MyLabelEncoder()
+            le.fit(LabelsClean['Catégories réelles'])
+
+            LabelsDF['Labels réels'] = le.transform(
+                LabelsDF['Catégories réelles'])
+            LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                LabelsDF['Labels KMeans'])
+            LabelsDF.reindex(columns=[
+                'Catégories réelles', 'Labels réels', 'Labels KMeans',
+                'Catégories KMeans'
+            ])
+
+            CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                  LabelsDF['Catégories réelles'])
+            CMfig = px.imshow(
+                CM,
+                x=category_orders,
+                y=category_orders,
+                text_auto=True,
+                color_continuous_scale='balance',
+                labels={
+                    'x': 'Catégorie prédite',
+                    'y': 'Catégorie réelle',
+                    'color': 'Nb produits'
+                },
+                title=
+                'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {}'
+                .format(p, a))
+            CMfig.update_layout(plot_bgcolor='white')
+            CMfig.update_coloraxes(showscale=False)
+            CMfig.show(renderer='jpeg')
+            if write_data is True:
+                CMfig.write_image('./Figures/HeatmapLabels{}{}.pdf'.format(
+                    p, a))
+
+            ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                      LabelsDF['Labels KMeans'])
+
+            Scores.loc[row, 'Algo'] = a
+            Scores.loc[row, 'perplexityTSNE'] = str(p)
+            Scores.loc[row, 'ARI'] = ARI
+            row += 1
+
+            kmeansfig = px.scatter(tsneLab,
+                                   x=0,
+                                   y=1,
+                                   title='KMeans t-SNE{} {}'.format(p, a),
+                                   color=LabelsDF['Catégories KMeans'],
+                                   color_discrete_map=color_discrete_map,
+                                   category_orders={'color': category_orders},
+                                   labels={
+                                       'color': 'Catégories',
+                                       '0': 'tSNE1',
+                                       '1': 'tSNE2'
+                                   })
+            kmeansfig.update_traces(marker_size=4)
+            kmeansfig.update_layout(legend={'itemsizing': 'constant'})
+            kmeansfig.show(renderer='jpeg')
+            if write_data is True:
+                kmeansfig.write_image('./Figures/kmean{}{}.pdf'.format(p, a))
+
+            print('ARI :{}'.format(ARI))
+
+    return Scores
+
 
 # %%
-Lab = pd.DataFrame(
-    labels.ravel(), index=idx,
-    columns=['label']).reset_index().rename(columns={'index': 'ImgName'})
-# %%
-LabClean = Lab.groupby('ImgName').value_counts().reset_index().pivot(
-    index='ImgName', columns='label', values=0).fillna(0)
-LabClean.columns.name = None
-LabClean.head(5)
-# %%
-# histogramme des descripteurs
-fig = px.bar(LabClean.iloc[0],
-             x=LabClean.iloc[0].index,
-             y=LabClean.iloc[0].values,
-             labels={
-                 'index': 'Visual word',
-                 'y': 'Fréquence'
-             },
-             width=1000,
-             height=300,
-             title='Histogramme des visuals words')
-fig.show(renderer='notebook')
-# %%
-pca = PCA(n_components=.90, random_state=0)
-LabPCA = pca.fit_transform(LabClean)
-print('Réduction de dimensions : {} vs {}'.format(pca.n_components_,
-                                                  pca.n_features_))
-# %%
-tsneLab = TSNE(n_components=2,
-               learning_rate='auto',
-               random_state=0,
-               init='pca',
-               n_jobs=-1).fit_transform(
-                   LabPCA)
+Scores = clustering(['SIFT', 'ORB'])
 # %%
-cat = []
-for i in LabClean.index:
-    cat.extend(DataImages[DataImages.image == i].category_0.to_list())
-tsnefig = px.scatter(tsneLab, x=0, y=1, color=cat)
-tsnefig.update_traces(marker_size=4)
-tsnefig.update_layout(legend={'itemsizing': 'constant'})
-tsnefig.show(renderer='notebook')
+fig = px.bar(
+    Scores,
+    x='perplexityTSNE',
+    y='ARI',
+    color='Algo',
+    barmode='group',
+    title=
+    "Comparaison des scores en fonction<br>de l'algorithme et de la perplexité"
+)
+fig.show(renderer='notebook')
+if write_data is True:
+    fig.write_image('./Figures/CompareIMGScores.pdf')
+
 # %%
