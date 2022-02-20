@@ -24,6 +24,11 @@ class MyLabelEncoder(LabelEncoder):
         return self
 
 
+from PIL import Image
+from tensorflow.keras.applications import vgg16
+from tensorflow.keras.applications import xception
+from tensorflow.keras.applications import inception_v3
+from tensorflow.keras.preprocessing import image
 # %%
 write_data = True
 
@@ -187,15 +192,10 @@ if write_data is True:
 # nous retourner une image bien équilibrée (courbe cumulée régulière).
 # Nous utiliserons ces traitements pour l'ensemble des images
 # %% [markdown]
-#### Création des images traitées
+#### Traitement des images
 # %%
 def ImgPreprocessing(imgPath, imgName):
     ImagesPreproc = {}
-    if write_data is True:
-        try:
-            os.mkdir("./ImagesProcessed/")
-        except OSError as error:
-            print(error)
     for path, name in zip(imgPath, imgName):
         img = cv.imread(path)
         imgR = cv.resize(img, (224, 224), interpolation=cv.INTER_AREA)
@@ -203,19 +203,17 @@ def ImgPreprocessing(imgPath, imgName):
         imgBWCLAHE = cv.createCLAHE(clipLimit=8,
                                     tileGridSize=(3, 3)).apply(imgBW)
         imgBWCLAHENlMD = cv.fastNlMeansDenoising(imgBWCLAHE, None, 5, 7, 21)
-        if write_data is True:
-            cv.imwrite('./ImagesProcessed/' + name, imgBWCLAHENlMD)
         ImagesPreproc[name] = imgBWCLAHENlMD
     return (ImagesPreproc)
 
-
 # %%
 ImagesPreproc = ImgPreprocessing(DataImages.path, DataImages.image)
+
 # %% [markdown]
-#### Essais SIFT et ORB
+#### Essais SIFT, ORB et CNN
 # %%
 def clustering(Algo,
-               perplexity=[10, 20, 30, 40, 50, 60, 70, 80],
+               perplexity=[5, 10, 20, 30, 40, 50, 60, 70, 80],
                n_componentsPCA=0.98):
     Labels = {}
 
@@ -228,89 +226,126 @@ def clustering(Algo,
     Scores = pd.DataFrame(columns=['perplexityTSNE', 'ARI'])
     row = 0
     for a in Algo:
-        img = ImagesPreproc[DataImages.image[0]]
-        if a == 'ORB':
-            orb = cv.ORB_create(nfeatures=1000)
-            kp, des = orb.detectAndCompute(img, None)
-        if a == 'SIFT':
-            sift = cv.SIFT_create()
-            kp, des = sift.detectAndCompute(img, None)
-
-        imgKP = cv.drawKeypoints(img, kp, None)
-        figKP = px.imshow(imgKP)
-        figKP.update_layout(coloraxis_showscale=False)
-        figKP.update_xaxes(showticklabels=False)
-        figKP.update_yaxes(showticklabels=False)
-        figKP.show(renderer='jpeg')
-        if write_data is True:
-            figKP.write_image('./Figures/{}imgKP.pdf'.format(a))
-
-        Descriptors = {}
-        BoVW = []
-        for key, value in ImagesPreproc.items():
+        if a == 'ORB' or a == 'SIFT':
+            img = ImagesPreproc[DataImages.image[0]]
             if a == 'ORB':
-                kp, des = orb.detectAndCompute(value, None)
+                orb = cv.ORB_create(nfeatures=1000)
+                kp, des = orb.detectAndCompute(img, None)
             if a == 'SIFT':
-                kp, des = sift.detectAndCompute(value, None)
-            Descriptors[key] = des
-            if len(BoVW) == 0:
-                BoVW = des
-            elif des is None:
-                BoVW = np.vstack((BoVW, len(BoVW[0]) * [0]))
-            else:
-                BoVW = np.vstack((BoVW, des))
-        print(BoVW.shape)
-        BoVW = np.float32(BoVW)
+                sift = cv.SIFT_create()
+                kp, des = sift.detectAndCompute(img, None)
 
-        idx = []
-        for i in DataImages.image:
-            if Descriptors[i] is None:
-                idx.extend([i])
-            else:
-                idx.extend(len(Descriptors[i]) * [i])
-        BoVWDF = pd.DataFrame(
-            BoVW, index=idx).reset_index().rename(columns={'index': 'ImgName'})
+            imgKP = cv.drawKeypoints(img, kp, None)
+            figKP = px.imshow(imgKP)
+            figKP.update_layout(coloraxis_showscale=False)
+            figKP.update_xaxes(showticklabels=False)
+            figKP.update_yaxes(showticklabels=False)
+            figKP.show(renderer='jpeg')
+            if write_data is True:
+                figKP.write_image('./Figures/{}imgKP.pdf'.format(a))
 
-        # Clustering
-        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1)
-        flags = cv.KMEANS_PP_CENTERS
-        compactness, labels, centers = cv.kmeans(BoVW, 1000, None, criteria, 1,
-                                                 flags)
+            Descriptors = {}
+            BoVW = []
+            for key, value in ImagesPreproc.items():
+                if a == 'ORB':
+                    kp, des = orb.detectAndCompute(value, None)
+                if a == 'SIFT':
+                    kp, des = sift.detectAndCompute(value, None)
+                Descriptors[key] = des
+                if len(BoVW) == 0:
+                    BoVW = des
+                elif des is None:
+                    BoVW = np.vstack((BoVW, len(BoVW[0]) * [0]))
+                else:
+                    BoVW = np.vstack((BoVW, des))
+            print('Dimensions du BoVW : ', BoVW.shape)
+            BoVW = np.float32(BoVW)
 
-        Lab = pd.DataFrame(labels.ravel(), index=idx, columns=[
-            'label'
-        ]).reset_index().rename(columns={'index': 'ImgName'})
+            idx = []
+            for i in DataImages.image:
+                if Descriptors[i] is None:
+                    idx.extend([i])
+                else:
+                    idx.extend(len(Descriptors[i]) * [i])
+            BoVWDF = pd.DataFrame(
+                BoVW,
+                index=idx).reset_index().rename(columns={'index': 'ImgName'})
 
-        LabClean = Lab.groupby('ImgName').value_counts().reset_index().pivot(
-            index='ImgName', columns='label', values=0).fillna(0)
-        LabClean.columns.name = None
-        LabClean.head(5)
+            # Clustering
+            criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10,
+                        1)
+            flags = cv.KMEANS_PP_CENTERS
+            compactness, labels, centers = cv.kmeans(BoVW, 1000, None,
+                                                     criteria, 1, flags)
 
-        category = []
-        for i in LabClean.index:
-            category.extend(
-                DataImages[DataImages.image == i].category_0.to_list())
+            Lab = pd.DataFrame(labels.ravel(), index=idx, columns=[
+                'label'
+            ]).reset_index().rename(columns={'index': 'ImgName'})
 
-        # histogramme des descripteurs
-        fig = px.bar(LabClean.iloc[0],
-                     x=LabClean.iloc[0].index,
-                     y=LabClean.iloc[0].values,
-                     labels={
-                         'index': 'Visual word',
-                         'y': 'Fréquence'
-                     },
-                     width=1000,
-                     height=300,
-                     title='Histogramme des visuals words {}'.format(a))
-        fig.show(renderer='jpeg')
+            LabClean = Lab.groupby(
+                'ImgName').value_counts().reset_index().pivot(
+                    index='ImgName', columns='label', values=0).fillna(0)
+            LabClean.columns.name = None
+            LabClean.head(5)
 
-        LabClean_scaled = StandardScaler().fit_transform(LabClean)
-        for p in perplexity:
-            pca = PCA(n_components=n_componentsPCA, random_state=0)
-            LabPCA = pca.fit_transform(LabClean_scaled)
-            print('Réduction de dimensions : {} vs {}'.format(
+            category = []
+            for i in LabClean.index:
+                category.extend(
+                    DataImages[DataImages.image == i].category_0.to_list())
+
+            # histogramme des descripteurs
+            fig = px.bar(LabClean.iloc[0],
+                         x=LabClean.iloc[0].index,
+                         y=LabClean.iloc[0].values,
+                         labels={
+                             'index': 'Visual word',
+                             'y': 'Fréquence'
+                         },
+                         width=1000,
+                         height=300,
+                         title='Histogramme des visuals words {}'.format(a))
+            fig.show(renderer='jpeg')
+
+            LabClean_scaled = StandardScaler().fit_transform(LabClean)
+
+        else:
+            if a == 'VGG':
+                vgg = vgg16.VGG16(weights='imagenet', include_top=False)
+            if a == 'XEPT':
+                xept = xception.Xception(weights='imagenet', include_top=False)
+            if a == 'IV3':
+                iv3 = inception_v3.InceptionV3(weights='imagenet',
+                                               include_top=False)
+            ImagesCNN = {}
+            for path, name in zip(DataImages.path, DataImages.image):
+                img = image.load_img(path, target_size=(224, 224))
+                x = image.img_to_array(img)
+                x = np.expand_dims(x, axis=0)
+                if a == 'VGG':
+                    x = vgg16.preprocess_input(x)
+                if a == 'XEPT':
+                    x = xception.preprocess_input(x)
+                if a == 'IV3':
+                    x = inception_v3.preprocess_input(x)
+                ImagesCNN[name] = x
+
+            features = []
+            for arr in ImagesCNN.values():
+                if a == 'VGG':
+                    features.append(vgg.predict(arr).flatten())
+                if a == 'XEPT':
+                    features.append(xept.predict(arr).flatten())
+                if a == 'IV3':
+                    features.append(iv3.predict(arr).flatten())
+
+            LabClean_scaled = StandardScaler().fit_transform(features)
+
+        pca = PCA(n_components=n_componentsPCA, random_state=0)
+        LabPCA = pca.fit_transform(LabClean_scaled)
+        print('Réduction de dimensions : {} vs {}'.format(
                 pca.n_components_, pca.n_features_))
 
+        for p in perplexity:
             tsneLab = TSNE(n_components=2,
                            perplexity=p,
                            learning_rate='auto',
@@ -321,7 +356,8 @@ def clustering(Algo,
             tsnefig = px.scatter(tsneLab,
                                  x=0,
                                  y=1,
-                                 color=category,
+                                 color=category if a == 'SIFT' or a == 'ORB'
+                                 else DataImages.category_0,
                                  color_discrete_map=color_discrete_map,
                                  category_orders={'color': category_orders},
                                  labels={
@@ -340,9 +376,13 @@ def clustering(Algo,
             LabKMeans = KMeans(n_clusters=7, random_state=0).fit(tsneLab)
 
             LabelsDF = pd.DataFrame({
-                'Catégories réelles': category,
-                'Labels KMeans': LabKMeans.labels_
+                'Catégories réelles':
+                category
+                if a == 'SIFT' or a == 'ORB' else DataImages.category_0,
+                'Labels KMeans':
+                LabKMeans.labels_
             })
+
             labelsGroups = LabelsDF.groupby(
                 ['Catégories réelles'])['Labels KMeans'].value_counts()
             LabelsClean = labelsGroups.groupby(
@@ -421,11 +461,9 @@ def clustering(Algo,
             print('ARI :{}'.format(ARI))
 
     return Scores
-
-
 # %%
-Scores = clustering(['SIFT', 'ORB'])
-# %%
+Scores = clustering(['SIFT', 'ORB', 'VGG', 'XEPT', 'IV3'])
+# %%
 fig = px.bar(
     Scores,
     x='perplexityTSNE',
