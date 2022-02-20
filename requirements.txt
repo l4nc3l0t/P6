@@ -9,3 +9,5 @@ kaleido
 nltk
 opencv-python
 opencv-contrib-python
+pillow
+tensorflow
