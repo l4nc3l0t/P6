@@ -300,15 +300,16 @@ CompareTxt
 def clustering(corpora,
                vectorizer=[TfidfVectorizer()],
                TokenType=None,
-               perplexity=[10, 20, 30, 40, 50],
-               ngram_range=[(1, 1), (2, 2), (3, 3), (1, 2), (2, 3), (1, 3)],
-               n_componentsPCA=0.98):
+               perplexity=[20, 30, 40, 50, 60],
+               ngram_range=[(1, 1), (1, 2), (1, 3)],
+               n_componentsPCA=.9):
     Labels = {}
 
     color_discrete_map = {}
     category_orders = TextData.category_0.sort_values().unique()
-    for cat, col in zip(TextData.category_0.unique(),
-                        px.colors.qualitative.D3[0:6]):
+    for cat, col in zip(
+            TextData.category_0.unique(),
+            px.colors.qualitative.D3[0:len(TextData.category_0.unique())]):
         color_discrete_map[cat] = col
 
     Scores = pd.DataFrame(columns=['Vectorizer', 'perplexityTSNE', 'ARI'])
@@ -326,19 +327,19 @@ def clustering(corpora,
             ngram = 'Bi-Tri'
         if n == (1, 3):
             ngram = 'Mono-Bi-Tri'
-        
+
         for vec in vectorizer:
             if str(vec).split('(')[0] == 'HashingVectorizer':
                 vec.set_params(ngram_range=n)
                 vectorizedTok = vec.fit_transform(corpora)
                 vectorizedTokDF = pd.DataFrame(vectorizedTok.toarray(),
-                                                TextData.pid)
+                                               TextData.pid)
             else:
                 vec.set_params(ngram_range=n)
                 vectorizedTok = vec.fit_transform(corpora)
                 vectorizedTokDF = pd.DataFrame(vectorizedTok.toarray(),
-                                                TextData.pid,
-                                                vec.get_feature_names_out())
+                                               TextData.pid,
+                                               vec.get_feature_names_out())
 
             pca = PCA(n_components=n_componentsPCA, random_state=0)
             vecTokPCA = pca.fit_transform(vectorizedTokDF)
@@ -515,10 +516,11 @@ corporaLem = []
 for r in range(len(TextData)):
     corporaLem.append(' '.join(lem for lem in LemsClean[TextData.pid[r]]))
 # %%
-LemScores = clustering(
-    corporaLem, [TfidfVectorizer(),
-                 CountVectorizer(),
-                 HashingVectorizer(n_features=2**15)], 'Lemmes')
+LemScores = clustering(corporaLem, [
+    TfidfVectorizer(),
+    CountVectorizer(),
+    HashingVectorizer(n_features=2**15)
+], 'Lemmes')
 # %%
 print(LemScores)
 # %%
@@ -540,10 +542,11 @@ corporaStem = []
 for r in range(len(TextData)):
     corporaStem.append(' '.join(stem for stem in StemsClean[TextData.pid[r]]))
 # %%
-StemScores = clustering(
-    corporaStem, [TfidfVectorizer(),
-                  CountVectorizer(),
-                  HashingVectorizer(n_features=2**15)], 'Racines')
+StemScores = clustering(corporaStem, [
+    TfidfVectorizer(),
+    CountVectorizer(),
+    HashingVectorizer(n_features=2**15)
+], 'Racines')
 # %%
 print(StemScores)
 # %%
