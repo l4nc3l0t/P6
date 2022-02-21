@@ -153,13 +153,30 @@ Lemmes1 = FreqLemFull[FreqLemFull['Freq'] > 500].sort_values(
 # %%
 LemsClean = cleanStopW(Lems, stopW, FiltMots + Lemmes1)
 # %%
-# text
-corporaLem = []
+Stems = {}
 for r in range(len(DataFull)):
-    corporaLem.append(' '.join(lem for lem in LemsClean[DataFull.pid[r]]))
-vec = HashingVectorizer(n_features=2**15, ngram_range=(1, 2))
-vectorizedLem = vec.fit_transform(corporaLem)
-vectorizedLemDF = pd.DataFrame(vectorizedLem.toarray(), DataFull.pid)
+    Stems[DataFull.pid[r]] = [
+        nltk.stem.PorterStemmer().stem(word)
+        for word in TokensClean[DataFull.pid[r]]
+    ]
+# %%
+FullStem, FreqStemFull = visuWordList(Stems, 'Racines')
+# %% [markdown]
+# Nous allons supprimer le stemme ayant plus de 500 occurences (> 1.3%)
+# %%
+Stemmes1 = FreqStemFull[FreqStemFull['Freq'] > 500].sort_values(
+    ['Freq'], ascending=False).Racines.to_list()
+# %%
+StemsClean = cleanStopW(Stems, stopW, FiltMots + Stemmes1)
+# %%
+# text
+corporaStem = []
+for r in range(len(DataFull)):
+    corporaStem.append(' '.join(stem for stem in StemsClean[DataFull.pid[r]]))
+vec = TfidfVectorizer(ngram_range=(1, 1))
+vectorizedLem = vec.fit_transform(corporaStem)
+vectorizedLemDF = pd.DataFrame(vectorizedLem.toarray(), DataFull.pid,
+                               vec.get_feature_names_out())
 
 # %%
 # images
@@ -178,7 +195,7 @@ for arr in ImagesCNN.values():
 featuresA = np.array(features)
 
 # %%
-DesFull = np.concatenate((vectorizedLem.toarray(), featuresA), axis=1)
+DesFull = np.concatenate((vectorizedStem.toarray(), featuresA), axis=1)
 print(len(featuresA[0]) + len(vectorizedLem.toarray()[0]) == len(DesFull[0]))
 # %%
 DesFull_scaled = StandardScaler().fit_transform(DesFull)
@@ -218,16 +235,15 @@ for ncomp in [50, 100, 110, 120, 150]:
                                  '1': 'tSNE2'
                              },
                              opacity=1,
-                             title='t-SNE{} Lemmes Hash(1, 2) IV3 {}'.format(
+                             title='t-SNE{} Racines tfidf(1, 1) IV3 {}'.format(
                                  p, ncomp))
         tsnefig.update_traces(marker_size=4)
         tsnefig.update_layout(legend={'itemsizing': 'constant'})
         tsnefig.show(renderer='jpeg')
         if write_data is True:
-            tsnefig.write_image(
-                './Figures/tsne{}LemHashMono-BiIV3{}.pdf'.format(
-                    p,
-                    str(ncomp).replace('.', '')))
+            tsnefig.write_image('./Figures/tsne{}StemtfidfMonoIV3{}.pdf'.format(
+                p,
+                str(ncomp).replace('.', '')))
 
         vecKMeans = KMeans(n_clusters=7, random_state=0).fit(tsneDes)
 
@@ -273,14 +289,14 @@ for ncomp in [50, 100, 110, 120, 150]:
                 'color': 'Nb produits'
             },
             title=
-            'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} Lemmes Hash(1, 2) IV3 {}'
+            'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} Racines tfidf(1, 1) IV3 {}'
             .format(p, ncomp))
         CMfig.update_layout(plot_bgcolor='white')
         CMfig.update_coloraxes(showscale=False)
         CMfig.show(renderer='jpeg')
         if write_data is True:
             CMfig.write_image(
-                './Figures/HeatmapLabels{}LemHashMono-BiIV3{}.pdf'.format(
+                './Figures/HeatmapLabels{}StemtfidfMonoIV3{}.pdf'.format(
                     p,
                     str(ncomp).replace('.', '')))
 
@@ -295,7 +311,7 @@ for ncomp in [50, 100, 110, 120, 150]:
             tsneDes,
             x=0,
             y=1,
-            title='KMeans t-SNE{} Lemmes Hash(1, 2) IV3 {}'.format(p, ncomp),
+            title='KMeans t-SNE{} Racines tfidf(1, 1) IV3 {}'.format(p, ncomp),
             color=LabelsDF['Catégories KMeans'],
             color_discrete_map=color_discrete_map,
             category_orders={'color': category_orders},
@@ -309,7 +325,7 @@ for ncomp in [50, 100, 110, 120, 150]:
         kmeansfig.show(renderer='jpeg')
         if write_data is True:
             kmeansfig.write_image(
-                './Figures/kmean{}LemHashMono-BiIV3{}.pdf'.format(
+                './Figures/kmean{}StemtfidfMonoIV3{}.pdf'.format(
                     p,
                     str(ncomp).replace('.', '')))
 
@@ -328,4 +344,4 @@ fig = px.bar(Scores,
 fig.show(renderer='notebook')
 if write_data is True:
     fig.write_image('./Figures/CompareFullScores.pdf')
- # %%
+# %%
