@@ -578,7 +578,7 @@ fig = px.bar(
     facet_col='TokenType',
     facet_row='ngram',
     barmode='group',
-    height=1000,
+    height=600,
     title=
     'Comparaison des scores en fonction<br>du vectoriseur et de la perplexité')
 fig.show(renderer='notebook')
