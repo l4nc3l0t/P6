@@ -206,21 +206,22 @@ def ImgPreprocessing(imgPath, imgName):
         ImagesPreproc[name] = imgBWCLAHENlMD
     return (ImagesPreproc)
 
+
 # %%
 ImagesPreproc = ImgPreprocessing(DataImages.path, DataImages.image)
+
 
 # %% [markdown]
 #### Essais SIFT, ORB et CNN
 # %%
-def clustering(Algo,
-               perplexity=[5, 10, 20, 30, 40, 50, 60, 70, 80],
-               n_componentsPCA=50):
+def clustering(Algo, perplexity=[30, 40, 50, 60], n_componentsPCA=100):
     Labels = {}
 
     color_discrete_map = {}
     category_orders = DataImages.category_0.sort_values().unique()
-    for cat, col in zip(DataImages.category_0.unique(),
-                        px.colors.qualitative.D3[0:6]):
+    for cat, col in zip(
+            DataImages.category_0.unique(),
+            px.colors.qualitative.D3[0:len(DataImages.category_0.unique())]):
         color_discrete_map[cat] = col
 
     Scores = pd.DataFrame(columns=['perplexityTSNE', 'ARI'])
@@ -343,7 +344,7 @@ def clustering(Algo,
         pca = PCA(n_components=n_componentsPCA, random_state=0)
         LabPCA = pca.fit_transform(LabClean_scaled)
         print('Réduction de dimensions : {} vs {}'.format(
-                pca.n_components_, pca.n_features_))
+            pca.n_components_, pca.n_features_))
 
         for p in perplexity:
             tsneLab = TSNE(n_components=2,
@@ -461,6 +462,8 @@ def clustering(Algo,
             print('ARI :{}'.format(ARI))
 
     return Scores
+
+
 # %%
 Scores = clustering(['SIFT', 'ORB', 'VGG', 'XEPT', 'IV3'])
 # %%
