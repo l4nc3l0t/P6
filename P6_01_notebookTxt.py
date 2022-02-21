@@ -496,7 +496,7 @@ TokScores = clustering(corporaTok, [
 ], 'Tokens')
 # %%
 print(TokScores)
-# %%
+# %%
 fig = px.bar(
     TokScores,
     x='perplexityTSNE',
@@ -546,7 +546,7 @@ StemScores = clustering(
                   HashingVectorizer(n_features=2**15)], 'Racines')
 # %%
 print(StemScores)
-# %%
+# %%
 fig = px.bar(
     StemScores,
     x='perplexityTSNE',

@@ -30,7 +30,7 @@ from tensorflow.keras.applications import xception
 from tensorflow.keras.applications import inception_v3
 from tensorflow.keras.preprocessing import image
 # %%
-write_data = True
+write_data = False
 
 # True : création d'un dossier Figures et Tableau
 # dans lesquels seront créés les éléments qui serviront à la présentation
@@ -214,7 +214,7 @@ ImagesPreproc = ImgPreprocessing(DataImages.path, DataImages.image)
 # %%
 def clustering(Algo,
                perplexity=[5, 10, 20, 30, 40, 50, 60, 70, 80],
-               n_componentsPCA=0.98):
+               n_componentsPCA=50):
     Labels = {}
 
     color_discrete_map = {}
