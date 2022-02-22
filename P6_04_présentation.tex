@@ -1,0 +1,172 @@
+\documentclass[8pt,aspectratio=169,hyperref={unicode=true}]{beamer}
+
+\usefonttheme{serif}
+\usepackage{fontspec}
+	\setmainfont{TeX Gyre Heros}
+\usepackage{unicode-math}
+\usepackage{lualatex-math}
+	\setmathfont{TeX Gyre Termes Math}
+\usepackage{polyglossia}
+\setdefaultlanguage[frenchpart=false]{french}
+\setotherlanguage{english}
+%\usepackage{microtype}
+\usepackage[locale = FR,
+            separate-uncertainty,
+            multi-part-units = single,
+            range-units = single]{siunitx}
+	\DeclareSIUnit\an{an}
+  \DeclareSIUnit{\octet}{o}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{graphicx}
+\graphicspath{{./Figures/}}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{multicol}
+    \newcolumntype{L}{>{\raggedright\arraybackslash}X}
+    \newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+\usepackage{tikz}
+\usetikzlibrary{graphs, graphdrawing, arrows.meta} \usegdlibrary{layered, trees}
+\usetikzlibrary{overlay-beamer-styles}
+\usepackage{subcaption}
+\usepackage[]{animate}
+\usepackage{float}
+\usepackage{csquotes}
+
+\usetheme[secheader]{Boadilla}
+\usecolortheme{seagull}
+\setbeamertemplate{enumerate items}[default]
+\setbeamertemplate{itemize items}{-}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{bibliography item}{}
+\setbeamerfont{framesubtitle}{size=\large}
+\setbeamertemplate{section in toc}[sections numbered]
+%\setbeamertemplate{subsection in toc}[subsections numbered]
+
+\title[Classifiez des biens de consommation]{Projet 6 : Classifiez des biens de consommation}
+\author[Lancelot \textsc{Leclercq}]{Lancelot \textsc{Leclercq}} 
+\institute[]{}
+\date[]{\small{7 mars 2022}}
+
+\AtBeginSection[]{
+  \begin{frame}
+  \vfill
+  \centering
+    \usebeamerfont{title}\insertsectionhead\par%
+  \vfill
+  \end{frame}
+}
+
+\begin{document}
+\setbeamercolor{background canvas}{bg=gray!20}
+\begin{frame}[plain]
+    \titlepage
+\end{frame}
+
+\begin{frame}{Sommaire}
+    \Large
+    \begin{columns}
+        \begin{column}{.7\textwidth}
+            \tableofcontents[hideallsubsections]
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\section{Introduction}
+\subsection{Problématique}
+\begin{frame}{\insertsubsection}
+    \begin{itemize}
+        \item L'entreprise Place de marché est un marketplace e-commerce
+              \begin{itemize}
+                  \item Vendeurs proposent des articles à des acheteurs en postant une photo et une description
+                  \item[]
+                  \item Attribution de la catégorie d'un article effectuée manuellement par les vendeurs $\Longrightarrow$ peu fiable
+              \end{itemize}
+        \item[]
+        \item Objectif
+              \begin{itemize}
+                  \item Améliorer l'expérience utilisateur des vendeurs et des acheteurs
+                  \item[]
+                  \item Automatisation de l'attribution d'une catégorie
+                  \item[]
+                  \item Étude de la faisabilité d'un moteur de classification
+              \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\subsection{Jeu de données}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            \begin{itemize}
+                \item Jeu de données textuelles
+                      \begin{itemize}
+                          \item Nom, prix, description, note, pour chaque objet
+                      \end{itemize}
+            \end{itemize}
+            \begin{table}
+                \input{./Tableaux/dataCol.tex}
+            \end{table}
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \begin{itemize}
+                \item Jeu d'images
+                      \begin{itemize}
+                          \item Nous avons une image par objet
+                      \end{itemize}
+            \end{itemize}
+            \begin{figure}
+                \includegraphics[width=\textwidth]{testIMG.pdf}
+                \caption{Exemple d'image associée à un objet (ici des rideaux)}
+            \end{figure}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\section{Classification des descriptions textuelles}
+\subsection{Méthode}
+\subsubsection{Nettoyage et création de "bag of words"}
+\begin{frame}{\insertsubsection}{\insertsubsubsection}
+    \begin{itemize}
+        \item Nettoyage:
+              \begin{itemize}
+                  \item Retrait des chiffres et caractères spéciaux,
+                  \item Retrait de la ponctuation,
+                  \item Uniformisation de la casse
+              \end{itemize}
+        \item Tokenisation
+              \begin{itemize}
+                  \item conservation des mots pertinents à partir de listes de "stopwords", des mots très récurrents à supprimer
+              \end{itemize}
+        \item Lemmatisation
+        \begin{itemize}
+            \item Similaire à la tokenisation avec la suppression des terminaisons des mots
+            \item Permet d'uniformiser les variations singulier/pluriel, masculin/féminin
+        \end{itemize}
+        \item Racinisation (Stemmatisation)
+        \begin{itemize}
+            \item Similaire à la lemmatisation avec conservation de la racine des mots
+            \item Permet d'uniformiser les variations de vocabulaires en regroupant les mots ayant les mêmes racines
+        \end{itemize}
+    \end{itemize}
+    \begin{table}
+        \scriptsize
+        \input{./Tableaux/CompareTxt.tex}
+    \end{table}
+\end{frame}
+\subsubsection{Vectorisation}
+
+\subsection{Comparaison}
+
+\section{Classification des images}
+\subsection{Méthode}
+
+\subsection{Comparaison}
+
+\section{Classification de l'ensemble des données}
+
+\section{Conclusion}
+\end{document}
