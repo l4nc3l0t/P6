@@ -54,6 +54,10 @@ else:
 data = pd.read_csv('./flipkart_com-ecommerce_sample_1050.csv')
 # %%
 data.info()
+if write_data is True:
+    pd.DataFrame(data.columns.to_list(),
+                 columns=['Données']).to_latex('./Tableaux/dataCol.tex',
+                                               index=False)
 # %%
 CategoryTree = data.product_category_tree.str.slice(
     start=2, stop=-2).str.split(' >> ', expand=True)
@@ -285,14 +289,20 @@ CompareTxt = pd.DataFrame({
     'Modification':
     ['Texte brut', 'Tokenisation', 'Lemmatisation', 'Racinisation'],
     'Contenu': [
-        TextData.description[0],
-        ' '.join(tok for tok in TokensClean[TextData.pid[0]]),
-        ' '.join(lem for lem in LemsClean[TextData.pid[0]]),
-        ' '.join(stem for stem in StemsClean[TextData.pid[0]])
+        TextData.description[0][99:272],
+        ' '.join(tok for tok in TokensClean[TextData.pid[0]][10:24]),
+        ' '.join(lem for lem in LemsClean[TextData.pid[0]][10:23]),
+        ' '.join(stem for stem in StemsClean[TextData.pid[0]][10:23])
     ]
-})
+}).set_index('Modification')
+CompareTxt['Contenu'] = CompareTxt.Contenu.str.replace('%', '\%').str.replace(
+    '&', '\&')
 if write_data is True:
-    CompareTxt.to_latex('./Tableaux/CompareTxt.tex', index=False)
+    CompareTxt.style.to_latex(
+        './Tableaux/CompareTxt.tex',
+        hrules=True,
+        caption=
+        'Tableau comparatif des différents procédés de nettoyage du texte')
 CompareTxt
 
 
@@ -313,7 +323,7 @@ def clustering(corpora,
         color_discrete_map[cat] = col
 
     Scores = pd.DataFrame(columns=['Vectorizer', 'perplexityTSNE', 'ARI'])
-    i = 0
+    row = 0
     for n in ngram_range:
         if n == (1, 1):
             ngram = 'Mono'
@@ -384,103 +394,229 @@ def clustering(corpora,
                     'Catégories réelles': TextData.category_0,
                     'Labels KMeans': vecKMeans.labels_
                 })
-                labelsGroups = LabelsDF.groupby(
-                    ['Catégories réelles'])['Labels KMeans'].value_counts()
-                LabelsClean = labelsGroups.groupby(
-                    level=0).max().sort_values().reset_index().join(
-                        pd.Series(labelsGroups.groupby(
-                            level=1).max().sort_values().index.to_list(),
-                                  name='Label maj')).rename(
-                                      columns={
-                                          'Labels KMeans': 'Nb prod/label'
-                                      }).sort_values('Label maj').reset_index(
-                                          drop=True)
-                print(LabelsClean)
-                #print(labelsGroups)
+                labelsGroups = LabelsDF.groupby([
+                    'Catégories réelles'
+                ])['Labels KMeans'].value_counts().rename('Labels KMeans Maj')
+                LabelsClean = LabelsDF.groupby([
+                    'Catégories réelles'
+                ])['Labels KMeans'].value_counts().groupby(
+                    level=[0, 1]).max().sort_values(ascending=False).rename(
+                        'Nb prod/label'
+                    ).reset_index().rename(columns={
+                        'Labels KMeans': 'Labels KMeans Maj'
+                    }).drop_duplicates('Catégories réelles').drop_duplicates(
+                        'Labels KMeans Maj').sort_values('Labels KMeans Maj')
 
-                le = MyLabelEncoder()
-                le.fit(LabelsClean['Catégories réelles'])
+                if len(LabelsClean['Catégories réelles']) != 7:
+                    LabelsClean = LabelsDF.groupby([
+                        'Catégories réelles'
+                    ])['Labels KMeans'].value_counts(
+                    ).groupby(level=[0, 1]).max().sort_values(
+                        ascending=False
+                    ).rename('Nb prod/label').reset_index().rename(columns={
+                        'Labels KMeans':
+                        'Labels KMeans Maj'
+                    }).drop_duplicates('Labels KMeans Maj').drop_duplicates(
+                        'Catégories réelles').sort_values('Labels KMeans Maj')
 
-                LabelsDF['Labels réels'] = le.transform(
-                    LabelsDF['Catégories réelles'])
-                LabelsDF['Catégories KMeans'] = le.inverse_transform(
-                    LabelsDF['Labels KMeans'])
-                LabelsDF.reindex(columns=[
-                    'Catégories réelles', 'Labels réels', 'Labels KMeans',
-                    'Catégories KMeans'
-                ])
+                    if len(LabelsClean['Catégories réelles']) != 7:
+                        print('Conflit dans les labels')
+                        Scores.loc[row, 'Vectorizer'] = str(vec).split('(')[0]
+                        if n == (1, 1):
+                            Scores.loc[row, 'ngram'] = 'monogram'
+                        if n == (2, 2):
+                            Scores.loc[row, 'ngram'] = 'bigram'
+                        if n == (3, 3):
+                            Scores.loc[row, 'ngram'] = 'trigram'
+                        if n == (1, 2):
+                            Scores.loc[row, 'ngram'] = 'mono-bigram'
+                        if n == (2, 3):
+                            Scores.loc[row, 'ngram'] = 'bi-trigram'
+                        if n == (1, 3):
+                            Scores.loc[row, 'ngram'] = 'mono-bi-trigram'
+                        Scores.loc[row, 'perplexityTSNE'] = str(p)
+                        Scores.loc[row, 'TokenType'] = TokenType
+                        Scores.loc[row, 'ARI'] = np.nan
+                        row += 1
 
-                CM = confusion_matrix(LabelsDF['Catégories KMeans'],
-                                      LabelsDF['Catégories réelles'])
-                CMfig = px.imshow(
-                    CM,
-                    x=category_orders,
-                    y=category_orders,
-                    text_auto=True,
-                    color_continuous_scale='balance',
-                    labels={
-                        'x': 'Catégorie prédite',
-                        'y': 'Catégorie réelle',
-                        'color': 'Nb produits'
-                    },
-                    title=
-                    'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {}{} {}'
-                    .format(p,
-                            str(vec).split('(')[0], n, TokenType))
-                CMfig.update_layout(plot_bgcolor='white')
-                CMfig.update_coloraxes(showscale=False)
-                CMfig.show(renderer='jpeg')
-                if write_data is True:
-                    CMfig.write_image(
-                        './Figures/HeatmapLabels{}{}{}{}.pdf'.format(
-                            p, TokenType,
-                            str(vec).split('(')[0], ngram))
+                    else:
+                        print(LabelsClean)
+                        #print(labelsGroups)
 
-                ARI = adjusted_rand_score(LabelsDF['Labels réels'],
-                                          LabelsDF['Labels KMeans'])
+                        le = MyLabelEncoder()
+                        le.fit(LabelsClean['Catégories réelles'])
 
-                Scores.loc[i, 'Vectorizer'] = str(vec).split('(')[0]
-                if n == (1, 1):
-                    Scores.loc[i, 'ngram'] = 'monogram'
-                if n == (2, 2):
-                    Scores.loc[i, 'ngram'] = 'bigram'
-                if n == (3, 3):
-                    Scores.loc[i, 'ngram'] = 'trigram'
-                if n == (1, 2):
-                    Scores.loc[i, 'ngram'] = 'mono-bigram'
-                if n == (2, 3):
-                    Scores.loc[i, 'ngram'] = 'bi-trigram'
-                if n == (1, 3):
-                    Scores.loc[i, 'ngram'] = 'mono-bi-trigram'
-                Scores.loc[i, 'perplexityTSNE'] = str(p)
-                Scores.loc[i, 'ARI'] = ARI
-                Scores.loc[i, 'TokenType'] = TokenType
-                i += 1
+                        LabelsDF['Labels réels'] = le.transform(
+                            LabelsDF['Catégories réelles'])
+                        LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                            LabelsDF['Labels KMeans'])
+                        LabelsDF.reindex(columns=[
+                            'Catégories réelles', 'Labels réels',
+                            'Labels KMeans', 'Catégories KMeans'
+                        ])
 
-                kmeansfig = px.scatter(
-                    tsneVTok,
-                    x=0,
-                    y=1,
-                    title='KMeans t-SNE{} {}{} {}'.format(
-                        p,
-                        str(vec).split('(')[0], n, TokenType),
-                    color=LabelsDF['Catégories KMeans'],
-                    color_discrete_map=color_discrete_map,
-                    category_orders={'color': category_orders},
-                    labels={
-                        'color': 'Catégories',
-                        '0': 'tSNE1',
-                        '1': 'tSNE2'
-                    })
-                kmeansfig.update_traces(marker_size=4)
-                kmeansfig.update_layout(legend={'itemsizing': 'constant'})
-                kmeansfig.show(renderer='jpeg')
-                if write_data is True:
-                    kmeansfig.write_image('./Figures/kmean{}{}{}{}.pdf'.format(
-                        p, TokenType,
-                        str(vec).split('(')[0], ngram))
+                        CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                              LabelsDF['Catégories réelles'])
+                        CMfig = px.imshow(
+                            CM,
+                            x=category_orders,
+                            y=category_orders,
+                            text_auto=True,
+                            color_continuous_scale='balance',
+                            labels={
+                                'x': 'Catégorie prédite',
+                                'y': 'Catégorie réelle',
+                                'color': 'Nb produits'
+                            },
+                            title=
+                            'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {}{} {}'
+                            .format(p,
+                                    str(vec).split('(')[0], n, TokenType))
+                        CMfig.update_layout(plot_bgcolor='white')
+                        CMfig.update_coloraxes(showscale=False)
+                        CMfig.show(renderer='jpeg')
+                        if write_data is True:
+                            CMfig.write_image(
+                                './Figures/HeatmapLabels{}{}{}{}.pdf'.format(
+                                    p, TokenType,
+                                    str(vec).split('(')[0], ngram))
 
-                print('ARI :{}'.format(ARI))
+                        ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                                  LabelsDF['Labels KMeans'])
+
+                        Scores.loc[row, 'Vectorizer'] = str(vec).split('(')[0]
+                        if n == (1, 1):
+                            Scores.loc[row, 'ngram'] = 'monogram'
+                        if n == (2, 2):
+                            Scores.loc[row, 'ngram'] = 'bigram'
+                        if n == (3, 3):
+                            Scores.loc[row, 'ngram'] = 'trigram'
+                        if n == (1, 2):
+                            Scores.loc[row, 'ngram'] = 'mono-bigram'
+                        if n == (2, 3):
+                            Scores.loc[rowi, 'ngram'] = 'bi-trigram'
+                        if n == (1, 3):
+                            Scores.loc[row, 'ngram'] = 'mono-bi-trigram'
+                        Scores.loc[row, 'perplexityTSNE'] = str(p)
+                        Scores.loc[row, 'ARI'] = ARI
+                        Scores.loc[row, 'TokenType'] = TokenType
+                        row += 1
+
+                        kmeansfig = px.scatter(
+                            tsneVTok,
+                            x=0,
+                            y=1,
+                            title='KMeans t-SNE{} {}{} {}'.format(
+                                p,
+                                str(vec).split('(')[0], n, TokenType),
+                            color=LabelsDF['Catégories KMeans'],
+                            color_discrete_map=color_discrete_map,
+                            category_orders={'color': category_orders},
+                            labels={
+                                'color': 'Catégories',
+                                '0': 'tSNE1',
+                                '1': 'tSNE2'
+                            })
+                        kmeansfig.update_traces(marker_size=4)
+                        kmeansfig.update_layout(
+                            legend={'itemsizing': 'constant'})
+                        kmeansfig.show(renderer='jpeg')
+                        if write_data is True:
+                            kmeansfig.write_image(
+                                './Figures/kmean{}{}{}{}.pdf'.format(
+                                    p, TokenType,
+                                    str(vec).split('(')[0], ngram))
+
+                        print('ARI :{}'.format(ARI))
+
+                else:
+                    print(LabelsClean)
+                    #print(labelsGroups)
+
+                    le = MyLabelEncoder()
+                    le.fit(LabelsClean['Catégories réelles'])
+
+                    LabelsDF['Labels réels'] = le.transform(
+                        LabelsDF['Catégories réelles'])
+                    LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                        LabelsDF['Labels KMeans'])
+                    LabelsDF.reindex(columns=[
+                        'Catégories réelles', 'Labels réels', 'Labels KMeans',
+                        'Catégories KMeans'
+                    ])
+
+                    CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                          LabelsDF['Catégories réelles'])
+                    CMfig = px.imshow(
+                        CM,
+                        x=category_orders,
+                        y=category_orders,
+                        text_auto=True,
+                        color_continuous_scale='balance',
+                        labels={
+                            'x': 'Catégorie prédite',
+                            'y': 'Catégorie réelle',
+                            'color': 'Nb produits'
+                        },
+                        title=
+                        'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {}{} {}'
+                        .format(p,
+                                str(vec).split('(')[0], n, TokenType))
+                    CMfig.update_layout(plot_bgcolor='white')
+                    CMfig.update_coloraxes(showscale=False)
+                    CMfig.show(renderer='jpeg')
+                    if write_data is True:
+                        CMfig.write_image(
+                            './Figures/HeatmapLabels{}{}{}{}.pdf'.format(
+                                p, TokenType,
+                                str(vec).split('(')[0], ngram))
+
+                    ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                              LabelsDF['Labels KMeans'])
+
+                    Scores.loc[row, 'Vectorizer'] = str(vec).split('(')[0]
+                    if n == (1, 1):
+                        Scores.loc[row, 'ngram'] = 'monogram'
+                    if n == (2, 2):
+                        Scores.loc[row, 'ngram'] = 'bigram'
+                    if n == (3, 3):
+                        Scores.loc[row, 'ngram'] = 'trigram'
+                    if n == (1, 2):
+                        Scores.loc[row, 'ngram'] = 'mono-bigram'
+                    if n == (2, 3):
+                        Scores.loc[row, 'ngram'] = 'bi-trigram'
+                    if n == (1, 3):
+                        Scores.loc[row, 'ngram'] = 'mono-bi-trigram'
+                    Scores.loc[row, 'perplexityTSNE'] = str(p)
+                    Scores.loc[row, 'ARI'] = ARI
+                    Scores.loc[row, 'TokenType'] = TokenType
+                    row += 1
+
+                    kmeansfig = px.scatter(
+                        tsneVTok,
+                        x=0,
+                        y=1,
+                        title='KMeans t-SNE{} {}{} {}'.format(
+                            p,
+                            str(vec).split('(')[0], n, TokenType),
+                        color=LabelsDF['Catégories KMeans'],
+                        color_discrete_map=color_discrete_map,
+                        category_orders={'color': category_orders},
+                        labels={
+                            'color': 'Catégories',
+                            '0': 'tSNE1',
+                            '1': 'tSNE2'
+                        })
+                    kmeansfig.update_traces(marker_size=4)
+                    kmeansfig.update_layout(legend={'itemsizing': 'constant'})
+                    kmeansfig.show(renderer='jpeg')
+                    if write_data is True:
+                        kmeansfig.write_image(
+                            './Figures/kmean{}{}{}{}.pdf'.format(
+                                p, TokenType,
+                                str(vec).split('(')[0], ngram))
+
+                    print('ARI :{}'.format(ARI))
 
     return Scores
 

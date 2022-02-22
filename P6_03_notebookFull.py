@@ -174,9 +174,9 @@ corporaStem = []
 for r in range(len(DataFull)):
     corporaStem.append(' '.join(stem for stem in StemsClean[DataFull.pid[r]]))
 vec = TfidfVectorizer(ngram_range=(1, 1))
-vectorizedLem = vec.fit_transform(corporaStem)
-vectorizedLemDF = pd.DataFrame(vectorizedLem.toarray(), DataFull.pid,
-                               vec.get_feature_names_out())
+vectorizedStem = vec.fit_transform(corporaStem)
+vectorizedStemDF = pd.DataFrame(vectorizedStem.toarray(), DataFull.pid,
+                                vec.get_feature_names_out())
 
 # %%
 # images
@@ -196,13 +196,13 @@ featuresA = np.array(features)
 
 # %%
 DesFull = np.concatenate((vectorizedStem.toarray(), featuresA), axis=1)
-print(len(featuresA[0]) + len(vectorizedLem.toarray()[0]) == len(DesFull[0]))
+print(len(featuresA[0]) + len(vectorizedStem.toarray()[0]) == len(DesFull[0]))
 # %%
 DesFull_scaled = StandardScaler().fit_transform(DesFull)
 Scores = pd.DataFrame(columns=['perplexityTSNE', 'ARI', 'PCAcomp'])
-i = 0
+row = 0
 
-for ncomp in [50, 100, 110, 120, 150]:
+for ncomp in [50, 100, 150, 200]:
     pca = PCA(n_components=ncomp, random_state=0)
     DesFullPCA = pca.fit_transform(DesFull_scaled)
     print('Réduction de dimensions : {} vs {}'.format(pca.n_components_,
@@ -215,7 +215,7 @@ for ncomp in [50, 100, 110, 120, 150]:
             px.colors.qualitative.D3[0:len(DataFull.category_0.unique())]):
         color_discrete_map[cat] = col
 
-    for p in [30, 40, 50, 60, 70]:
+    for p in [30, 40, 50, 60, 70, 80]:
         tsneDes = TSNE(n_components=2,
                        perplexity=p,
                        learning_rate='auto',
@@ -241,9 +241,10 @@ for ncomp in [50, 100, 110, 120, 150]:
         tsnefig.update_layout(legend={'itemsizing': 'constant'})
         tsnefig.show(renderer='jpeg')
         if write_data is True:
-            tsnefig.write_image('./Figures/tsne{}StemtfidfMonoIV3{}.pdf'.format(
-                p,
-                str(ncomp).replace('.', '')))
+            tsnefig.write_image(
+                './Figures/tsne{}StemtfidfMonoIV3{}.pdf'.format(
+                    p,
+                    str(ncomp).replace('.', '')))
 
         vecKMeans = KMeans(n_clusters=7, random_state=0).fit(tsneDes)
 
@@ -251,85 +252,182 @@ for ncomp in [50, 100, 110, 120, 150]:
             'Catégories réelles': DataFull.category_0,
             'Labels KMeans': vecKMeans.labels_
         })
-        labelsGroups = LabelsDF.groupby(['Catégories réelles'
-                                         ])['Labels KMeans'].value_counts()
-        LabelsClean = labelsGroups.groupby(
-            level=0).max().sort_values().reset_index().join(
-                pd.Series(
-                    labelsGroups.groupby(
-                        level=1).max().sort_values().index.to_list(),
-                    name='Label maj')).rename(columns={
-                        'Labels KMeans': 'Nb prod/label'
-                    }).sort_values('Label maj').reset_index(drop=True)
-        print(LabelsClean)
-        #print(labelsGroups)
+        labelsGroups = LabelsDF.groupby([
+            'Catégories réelles'
+        ])['Labels KMeans'].value_counts().rename('Labels KMeans Maj')
+        LabelsClean = LabelsDF.groupby([
+            'Catégories réelles'
+        ])['Labels KMeans'].value_counts().groupby(
+            level=[0, 1]).max().sort_values(
+                ascending=False).rename('Nb prod/label').reset_index().rename(
+                    columns={
+                        'Labels KMeans': 'Labels KMeans Maj'
+                    }).drop_duplicates('Catégories réelles').drop_duplicates(
+                        'Labels KMeans Maj').sort_values('Labels KMeans Maj')
 
-        le = MyLabelEncoder()
-        le.fit(LabelsClean['Catégories réelles'])
+        if len(LabelsClean['Catégories réelles']) != 7:
+            LabelsClean = LabelsDF.groupby([
+                'Catégories réelles'
+            ])['Labels KMeans'].value_counts().groupby(level=[0, 1]).max(
+            ).sort_values(
+                ascending=False).rename('Nb prod/label').reset_index().rename(
+                    columns={
+                        'Labels KMeans': 'Labels KMeans Maj'
+                    }).drop_duplicates('Labels KMeans Maj').drop_duplicates(
+                        'Catégories réelles').sort_values('Labels KMeans Maj')
 
-        LabelsDF['Labels réels'] = le.transform(LabelsDF['Catégories réelles'])
-        LabelsDF['Catégories KMeans'] = le.inverse_transform(
-            LabelsDF['Labels KMeans'])
-        LabelsDF.reindex(columns=[
-            'Catégories réelles', 'Labels réels', 'Labels KMeans',
-            'Catégories KMeans'
-        ])
+            if len(LabelsClean['Catégories réelles']) != 7:
+                print('Conflit dans les labels')
+                Scores.loc[row, 'PCAcomp'] = str(ncomp).replace('.', '')
+                Scores.loc[row, 'perplexityTSNE'] = str(p)
+                Scores.loc[row, 'ARI'] = np.nan
+                row += 1
 
-        CM = confusion_matrix(LabelsDF['Catégories KMeans'],
-                              LabelsDF['Catégories réelles'])
-        CMfig = px.imshow(
-            CM,
-            x=category_orders,
-            y=category_orders,
-            text_auto=True,
-            color_continuous_scale='balance',
-            labels={
-                'x': 'Catégorie prédite',
-                'y': 'Catégorie réelle',
-                'color': 'Nb produits'
-            },
-            title=
-            'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} Racines tfidf(1, 1) IV3 {}'
-            .format(p, ncomp))
-        CMfig.update_layout(plot_bgcolor='white')
-        CMfig.update_coloraxes(showscale=False)
-        CMfig.show(renderer='jpeg')
-        if write_data is True:
-            CMfig.write_image(
-                './Figures/HeatmapLabels{}StemtfidfMonoIV3{}.pdf'.format(
-                    p,
-                    str(ncomp).replace('.', '')))
+            else:
+                print(LabelsClean)
+                #print(labelsGroups)
 
-        ARI = adjusted_rand_score(LabelsDF['Labels réels'],
-                                  LabelsDF['Labels KMeans'])
-        Scores.loc[i, 'PCAcomp'] = str(ncomp).replace('.', '')
-        Scores.loc[i, 'perplexityTSNE'] = str(p)
-        Scores.loc[i, 'ARI'] = ARI
-        i += 1
+                le = MyLabelEncoder()
+                le.fit(LabelsClean['Catégories réelles'])
 
-        kmeansfig = px.scatter(
-            tsneDes,
-            x=0,
-            y=1,
-            title='KMeans t-SNE{} Racines tfidf(1, 1) IV3 {}'.format(p, ncomp),
-            color=LabelsDF['Catégories KMeans'],
-            color_discrete_map=color_discrete_map,
-            category_orders={'color': category_orders},
-            labels={
-                'color': 'Catégories',
-                '0': 'tSNE1',
-                '1': 'tSNE2'
-            })
-        kmeansfig.update_traces(marker_size=4)
-        kmeansfig.update_layout(legend={'itemsizing': 'constant'})
-        kmeansfig.show(renderer='jpeg')
-        if write_data is True:
-            kmeansfig.write_image(
-                './Figures/kmean{}StemtfidfMonoIV3{}.pdf'.format(
-                    p,
-                    str(ncomp).replace('.', '')))
+                LabelsDF['Labels réels'] = le.transform(
+                    LabelsDF['Catégories réelles'])
+                LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                    LabelsDF['Labels KMeans'])
+                LabelsDF.reindex(columns=[
+                    'Catégories réelles', 'Labels réels', 'Labels KMeans',
+                    'Catégories KMeans'
+                ])
 
-        print('ARI :{}'.format(ARI))
+                CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                      LabelsDF['Catégories réelles'])
+                CMfig = px.imshow(
+                    CM,
+                    x=category_orders,
+                    y=category_orders,
+                    text_auto=True,
+                    color_continuous_scale='balance',
+                    labels={
+                        'x': 'Catégorie prédite',
+                        'y': 'Catégorie réelle',
+                        'color': 'Nb produits'
+                    },
+                    title=
+                    'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} Racines tfidf(1, 1) IV3 {}'
+                    .format(p, ncomp))
+                CMfig.update_layout(plot_bgcolor='white')
+                CMfig.update_coloraxes(showscale=False)
+                CMfig.show(renderer='jpeg')
+                if write_data is True:
+                    CMfig.write_image(
+                        './Figures/HeatmapLabels{}StemtfidfMonoIV3{}.pdf'.
+                        format(p,
+                               str(ncomp).replace('.', '')))
+
+                ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                          LabelsDF['Labels KMeans'])
+                Scores.loc[row, 'PCAcomp'] = str(ncomp).replace('.', '')
+                Scores.loc[row, 'perplexityTSNE'] = str(p)
+                Scores.loc[row, 'ARI'] = ARI
+                row += 1
+
+                kmeansfig = px.scatter(
+                    tsneDes,
+                    x=0,
+                    y=1,
+                    title='KMeans t-SNE{} Racines tfidf(1, 1) IV3 {}'.format(
+                        p, ncomp),
+                    color=LabelsDF['Catégories KMeans'],
+                    color_discrete_map=color_discrete_map,
+                    category_orders={'color': category_orders},
+                    labels={
+                        'color': 'Catégories',
+                        '0': 'tSNE1',
+                        '1': 'tSNE2'
+                    })
+                kmeansfig.update_traces(marker_size=4)
+                kmeansfig.update_layout(legend={'itemsizing': 'constant'})
+                kmeansfig.show(renderer='jpeg')
+                if write_data is True:
+                    kmeansfig.write_image(
+                        './Figures/kmean{}StemtfidfMonoIV3{}.pdf'.format(
+                            p,
+                            str(ncomp).replace('.', '')))
+
+                print('ARI :{}'.format(ARI))
+
+        else:
+            print(LabelsClean)
+            #print(labelsGroups)
+
+            le = MyLabelEncoder()
+            le.fit(LabelsClean['Catégories réelles'])
+
+            LabelsDF['Labels réels'] = le.transform(
+                LabelsDF['Catégories réelles'])
+            LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                LabelsDF['Labels KMeans'])
+            LabelsDF.reindex(columns=[
+                'Catégories réelles', 'Labels réels', 'Labels KMeans',
+                'Catégories KMeans'
+            ])
+
+            CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                  LabelsDF['Catégories réelles'])
+            CMfig = px.imshow(
+                CM,
+                x=category_orders,
+                y=category_orders,
+                text_auto=True,
+                color_continuous_scale='balance',
+                labels={
+                    'x': 'Catégorie prédite',
+                    'y': 'Catégorie réelle',
+                    'color': 'Nb produits'
+                },
+                title=
+                'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} Racines tfidf(1, 1) IV3 {}'
+                .format(p, ncomp))
+            CMfig.update_layout(plot_bgcolor='white')
+            CMfig.update_coloraxes(showscale=False)
+            CMfig.show(renderer='jpeg')
+            if write_data is True:
+                CMfig.write_image(
+                    './Figures/HeatmapLabels{}StemtfidfMonoIV3{}.pdf'.format(
+                        p,
+                        str(ncomp).replace('.', '')))
+
+            ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                      LabelsDF['Labels KMeans'])
+            Scores.loc[row, 'PCAcomp'] = str(ncomp).replace('.', '')
+            Scores.loc[row, 'perplexityTSNE'] = str(p)
+            Scores.loc[row, 'ARI'] = ARI
+            row += 1
+
+            kmeansfig = px.scatter(
+                tsneDes,
+                x=0,
+                y=1,
+                title='KMeans t-SNE{} Racines tfidf(1, 1) IV3 {}'.format(
+                    p, ncomp),
+                color=LabelsDF['Catégories KMeans'],
+                color_discrete_map=color_discrete_map,
+                category_orders={'color': category_orders},
+                labels={
+                    'color': 'Catégories',
+                    '0': 'tSNE1',
+                    '1': 'tSNE2'
+                })
+            kmeansfig.update_traces(marker_size=4)
+            kmeansfig.update_layout(legend={'itemsizing': 'constant'})
+            kmeansfig.show(renderer='jpeg')
+            if write_data is True:
+                kmeansfig.write_image(
+                    './Figures/kmean{}StemtfidfMonoIV3{}.pdf'.format(
+                        p,
+                        str(ncomp).replace('.', '')))
+
+            print('ARI :{}'.format(ARI))
 
 # %%
 print(Scores)

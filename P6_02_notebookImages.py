@@ -30,7 +30,7 @@ from tensorflow.keras.applications import xception
 from tensorflow.keras.applications import inception_v3
 from tensorflow.keras.preprocessing import image
 # %%
-write_data = False
+write_data = True
 
 # True : création d'un dossier Figures et Tableau
 # dans lesquels seront créés les éléments qui serviront à la présentation
@@ -74,7 +74,12 @@ DataImages['path'] = ['./Images/' + name for name in DataImages.image]
 # %%
 # test ouverture image
 fig = px.imshow(cv.imread(DataImages.path[0]))
+fig.update_layout(coloraxis_showscale=False)
+fig.update_xaxes(showticklabels=False)
+fig.update_yaxes(showticklabels=False)
 fig.show(renderer='jpeg')
+if write_data is True:
+    fig.write_image('./Figures/testIMG.pdf')
 # %%
 DataImages['height'] = [cv.imread(p).shape[0] for p in DataImages.path]
 DataImages['width'] = [cv.imread(p).shape[1] for p in DataImages.path]
@@ -384,82 +389,174 @@ def clustering(Algo, perplexity=[30, 40, 50, 60], n_componentsPCA=100):
                 LabKMeans.labels_
             })
 
-            labelsGroups = LabelsDF.groupby(
-                ['Catégories réelles'])['Labels KMeans'].value_counts()
-            LabelsClean = labelsGroups.groupby(
-                level=0).max().sort_values().reset_index().join(
-                    pd.Series(
-                        labelsGroups.groupby(
-                            level=1).max().sort_values().index.to_list(),
-                        name='Label maj')).rename(
-                            columns={
-                                'Labels KMeans': 'Nb prod/label'
-                            }).sort_values('Label maj').reset_index(drop=True)
-            print(LabelsClean)
-            #print(labelsGroups)
+            labelsGroups = LabelsDF.groupby([
+                'Catégories réelles'
+            ])['Labels KMeans'].value_counts().rename('Labels KMeans Maj')
+            LabelsClean = LabelsDF.groupby([
+                'Catégories réelles'
+            ])['Labels KMeans'].value_counts().groupby(level=[0, 1]).max(
+            ).sort_values(
+                ascending=False).rename('Nb prod/label').reset_index().rename(
+                    columns={
+                        'Labels KMeans': 'Labels KMeans Maj'
+                    }).drop_duplicates('Catégories réelles').drop_duplicates(
+                        'Labels KMeans Maj').sort_values('Labels KMeans Maj')
 
-            le = MyLabelEncoder()
-            le.fit(LabelsClean['Catégories réelles'])
+            if len(LabelsClean['Catégories réelles']) != 7:
+                LabelsClean = LabelsDF.groupby([
+                    'Catégories réelles'
+                ])['Labels KMeans'].value_counts().groupby(
+                    level=[0, 1]).max().sort_values(ascending=False).rename(
+                        'Nb prod/label'
+                    ).reset_index().rename(columns={
+                        'Labels KMeans': 'Labels KMeans Maj'
+                    }).drop_duplicates('Labels KMeans Maj').drop_duplicates(
+                        'Catégories réelles').sort_values('Labels KMeans Maj')
 
-            LabelsDF['Labels réels'] = le.transform(
-                LabelsDF['Catégories réelles'])
-            LabelsDF['Catégories KMeans'] = le.inverse_transform(
-                LabelsDF['Labels KMeans'])
-            LabelsDF.reindex(columns=[
-                'Catégories réelles', 'Labels réels', 'Labels KMeans',
-                'Catégories KMeans'
-            ])
+                if len(LabelsClean['Catégories réelles']) != 7:
+                    print('Conflit dans les labels')
+                    Scores.loc[row, 'Algo'] = a
+                    Scores.loc[row, 'perplexityTSNE'] = str(p)
+                    Scores.loc[row, 'ARI'] = np.nan
+                    row += 1
 
-            CM = confusion_matrix(LabelsDF['Catégories KMeans'],
-                                  LabelsDF['Catégories réelles'])
-            CMfig = px.imshow(
-                CM,
-                x=category_orders,
-                y=category_orders,
-                text_auto=True,
-                color_continuous_scale='balance',
-                labels={
-                    'x': 'Catégorie prédite',
-                    'y': 'Catégorie réelle',
-                    'color': 'Nb produits'
-                },
-                title=
-                'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {}'
-                .format(p, a))
-            CMfig.update_layout(plot_bgcolor='white')
-            CMfig.update_coloraxes(showscale=False)
-            CMfig.show(renderer='jpeg')
-            if write_data is True:
-                CMfig.write_image('./Figures/HeatmapLabels{}{}.pdf'.format(
-                    p, a))
+                else:
+                    print(LabelsClean)
+                    #print(labelsGroups)
 
-            ARI = adjusted_rand_score(LabelsDF['Labels réels'],
-                                      LabelsDF['Labels KMeans'])
+                    le = MyLabelEncoder()
+                    le.fit(LabelsClean['Catégories réelles'])
 
-            Scores.loc[row, 'Algo'] = a
-            Scores.loc[row, 'perplexityTSNE'] = str(p)
-            Scores.loc[row, 'ARI'] = ARI
-            row += 1
+                    LabelsDF['Labels réels'] = le.transform(
+                        LabelsDF['Catégories réelles'])
+                    LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                        LabelsDF['Labels KMeans'])
+                    LabelsDF.reindex(columns=[
+                        'Catégories réelles', 'Labels réels', 'Labels KMeans',
+                        'Catégories KMeans'
+                    ])
 
-            kmeansfig = px.scatter(tsneLab,
-                                   x=0,
-                                   y=1,
-                                   title='KMeans t-SNE{} {}'.format(p, a),
-                                   color=LabelsDF['Catégories KMeans'],
-                                   color_discrete_map=color_discrete_map,
-                                   category_orders={'color': category_orders},
-                                   labels={
-                                       'color': 'Catégories',
-                                       '0': 'tSNE1',
-                                       '1': 'tSNE2'
-                                   })
-            kmeansfig.update_traces(marker_size=4)
-            kmeansfig.update_layout(legend={'itemsizing': 'constant'})
-            kmeansfig.show(renderer='jpeg')
-            if write_data is True:
-                kmeansfig.write_image('./Figures/kmean{}{}.pdf'.format(p, a))
+                    CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                        LabelsDF['Catégories réelles'])
+                    CMfig = px.imshow(
+                        CM,
+                        x=category_orders,
+                        y=category_orders,
+                        text_auto=True,
+                        color_continuous_scale='balance',
+                        labels={
+                            'x': 'Catégorie prédite',
+                            'y': 'Catégorie réelle',
+                            'color': 'Nb produits'
+                        },
+                        title=
+                        'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {}'
+                        .format(p, a))
+                    CMfig.update_layout(plot_bgcolor='white')
+                    CMfig.update_coloraxes(showscale=False)
+                    CMfig.show(renderer='jpeg')
+                    if write_data is True:
+                        CMfig.write_image('./Figures/HeatmapLabels{}{}.pdf'.format(
+                            p, a))
 
-            print('ARI :{}'.format(ARI))
+                    ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                            LabelsDF['Labels KMeans'])
+
+                    Scores.loc[row, 'Algo'] = a
+                    Scores.loc[row, 'perplexityTSNE'] = str(p)
+                    Scores.loc[row, 'ARI'] = ARI
+                    row += 1
+
+                    kmeansfig = px.scatter(
+                        tsneLab,
+                        x=0,
+                        y=1,
+                        title='KMeans t-SNE{} {}'.format(p, a),
+                        color=LabelsDF['Catégories KMeans'],
+                        color_discrete_map=color_discrete_map,
+                        category_orders={'color': category_orders},
+                        labels={
+                            'color': 'Catégories',
+                            '0': 'tSNE1',
+                            '1': 'tSNE2'
+                        })
+                    kmeansfig.update_traces(marker_size=4)
+                    kmeansfig.update_layout(legend={'itemsizing': 'constant'})
+                    kmeansfig.show(renderer='jpeg')
+                    if write_data is True:
+                        kmeansfig.write_image('./Figures/kmean{}{}.pdf'.format(
+                            p, a))
+
+                    print('ARI :{}'.format(ARI))
+
+            else:
+                print(LabelsClean)
+                #print(labelsGroups)
+
+                le = MyLabelEncoder()
+                le.fit(LabelsClean['Catégories réelles'])
+
+                LabelsDF['Labels réels'] = le.transform(
+                    LabelsDF['Catégories réelles'])
+                LabelsDF['Catégories KMeans'] = le.inverse_transform(
+                    LabelsDF['Labels KMeans'])
+                LabelsDF.reindex(columns=[
+                    'Catégories réelles', 'Labels réels', 'Labels KMeans',
+                    'Catégories KMeans'
+                ])
+
+                CM = confusion_matrix(LabelsDF['Catégories KMeans'],
+                                      LabelsDF['Catégories réelles'])
+                CMfig = px.imshow(
+                    CM,
+                    x=category_orders,
+                    y=category_orders,
+                    text_auto=True,
+                    color_continuous_scale='balance',
+                    labels={
+                        'x': 'Catégorie prédite',
+                        'y': 'Catégorie réelle',
+                        'color': 'Nb produits'
+                    },
+                    title=
+                    'Matrice de confusion des labels prédits (x) et réels (y)<br>t-SNE{} {}'
+                    .format(p, a))
+                CMfig.update_layout(plot_bgcolor='white')
+                CMfig.update_coloraxes(showscale=False)
+                CMfig.show(renderer='jpeg')
+                if write_data is True:
+                    CMfig.write_image('./Figures/HeatmapLabels{}{}.pdf'.format(
+                        p, a))
+
+                ARI = adjusted_rand_score(LabelsDF['Labels réels'],
+                                          LabelsDF['Labels KMeans'])
+
+                Scores.loc[row, 'Algo'] = a
+                Scores.loc[row, 'perplexityTSNE'] = str(p)
+                Scores.loc[row, 'ARI'] = ARI
+                row += 1
+
+                kmeansfig = px.scatter(
+                    tsneLab,
+                    x=0,
+                    y=1,
+                    title='KMeans t-SNE{} {}'.format(p, a),
+                    color=LabelsDF['Catégories KMeans'],
+                    color_discrete_map=color_discrete_map,
+                    category_orders={'color': category_orders},
+                    labels={
+                        'color': 'Catégories',
+                        '0': 'tSNE1',
+                        '1': 'tSNE2'
+                    })
+                kmeansfig.update_traces(marker_size=4)
+                kmeansfig.update_layout(legend={'itemsizing': 'constant'})
+                kmeansfig.show(renderer='jpeg')
+                if write_data is True:
+                    kmeansfig.write_image('./Figures/kmean{}{}.pdf'.format(
+                        p, a))
+
+                print('ARI :{}'.format(ARI))
 
     return Scores
 
