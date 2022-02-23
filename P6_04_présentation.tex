@@ -261,7 +261,7 @@
     \end{columns}
 \end{frame}
 
-\subsection{Comparaison : validation croisée}
+\subsection{Comparaison}
 \begin{frame}{\insertsubsection}
     \begin{columns}
         \begin{column}{.4\textwidth}
@@ -285,10 +285,10 @@
 \subsection{Meilleure classification}
 \begin{frame}{\insertsubsection}
     \begin{columns}
-        \begin{column}{.5\textwidth}
+        \begin{column}{.4\textwidth}
             Meilleure classification avec : InceptionV3
         \end{column}
-        \begin{column}{.5\textwidth}
+        \begin{column}{.6\textwidth}
             \includegraphics[width=\textwidth]{HeatmapLabels40IV3.pdf}
         \end{column}
     \end{columns}
@@ -317,6 +317,47 @@
     \item Essais avec plusieurs valeurs de composantes utilisées pour la PCA afin d'affiner la classification
 \end{itemize}
 \end{frame}
+
+\subsection{Comparaison}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.4\textwidth}
+            \begin{itemize}
+                \item Essais pour différentes valeurs de composantes utilisée pour la PCA
+            \end{itemize}
+        \end{column}
+        \begin{column}{.6\textwidth}
+            \includegraphics[width=\textwidth]{CompareFullScores.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Meilleure classification}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.4\textwidth}
+            \begin{itemize}
+                \item Meilleure classification avec 150 composantes
+            \end{itemize}
+        \end{column}
+        \begin{column}{.6\textwidth}
+            \includegraphics[width=\textwidth]{HeatmapLabels60StemtfidfMonoIV3150.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Visualisation de la meilleure classification}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{tsne60StemtfidfMonoIV3150.pdf}
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{kmean60StemtfidfMonoIV3150.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
 
 \section{Conclusion}
 \end{document}
