@@ -127,46 +127,196 @@
 \end{frame}
 
 \section{Classification des descriptions textuelles}
-\subsection{Méthode}
-\subsubsection{Nettoyage et création de "bag of words"}
+\subsection{Méthode : Nettoyage et création de "bag of words"}
+\subsubsection{Sélection des stopwords personalisés}
 \begin{frame}{\insertsubsection}{\insertsubsubsection}
-    \begin{itemize}
-        \item Nettoyage:
-              \begin{itemize}
-                  \item Retrait des chiffres et caractères spéciaux,
-                  \item Retrait de la ponctuation,
-                  \item Uniformisation de la casse
-              \end{itemize}
-        \item Tokenisation
-              \begin{itemize}
-                  \item conservation des mots pertinents à partir de listes de "stopwords", des mots très récurrents à supprimer
-              \end{itemize}
-        \item Lemmatisation
-        \begin{itemize}
-            \item Similaire à la tokenisation avec la suppression des terminaisons des mots
-            \item Permet d'uniformiser les variations singulier/pluriel, masculin/féminin
-        \end{itemize}
-        \item Racinisation (Stemmatisation)
-        \begin{itemize}
-            \item Similaire à la lemmatisation avec conservation de la racine des mots
-            \item Permet d'uniformiser les variations de vocabulaires en regroupant les mots ayant les mêmes racines
-        \end{itemize}
-    \end{itemize}
+    \begin{columns}
+        \begin{column}{.4\textwidth}
+            \begin{itemize}
+                \item Nettoyage:
+                      \begin{itemize}
+                          \item Retrait des chiffres et caractères spéciaux,
+                          \item Retrait de la ponctuation,
+                          \item Uniformisation de la casse
+                      \end{itemize}
+                \item Tokenisation
+                      \begin{itemize}
+                          \item conservation des mots pertinents à partir de listes de "stopwords", des mots très récurrents à supprimer
+                      \end{itemize}
+                \item Lemmatisation
+                      \begin{itemize}
+                          \item Similaire à la tokenisation avec la suppression des terminaisons des mots
+                          \item Permet d'uniformiser les variations singulier/pluriel, masculin/féminin
+                      \end{itemize}
+                \item Racinisation (Stemmatisation)
+                      \begin{itemize}
+                          \item Similaire à la lemmatisation avec conservation de la racine des mots
+                          \item Permet d'uniformiser les variations de vocabulaires en regroupant les mots ayant les mêmes racines
+                      \end{itemize}
+            \end{itemize}
+        \end{column}
+        \begin{column}{.6\textwidth}
+            \includegraphics[width=\textwidth]{FreqTok50.pdf}
+            \includegraphics[width=\textwidth]{FreqLem50.pdf}
+            \includegraphics[width=\textwidth]{FreqStem50.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsubsection{Comparaison des différents traitements du texte}
+\begin{frame}{\insertsubsection}{\insertsubsubsection}
     \begin{table}
         \scriptsize
         \input{./Tableaux/CompareTxt.tex}
     \end{table}
 \end{frame}
-\subsubsection{Vectorisation}
 
-\subsection{Comparaison}
+\subsection{Comparaison : validation croisée}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.45\textwidth}
+            \begin{itemize}
+                \item Essais pour les 3 types de nettoyages
+                      \begin{itemize}
+                          \item tokenisation
+                          \item lemmatisation
+                          \item racinisation
+                      \end{itemize}
+                \item[]
+                \item Essais de trois vectoriseurs :
+                      \begin{itemize}
+                          \item TfidfVectorizer
+                          \item CountVectorizer
+                          \item HashingVectorizer
+                      \end{itemize}
+                \item[]
+                \item Essais de différents découpages :
+                      \begin{itemize}
+                          \item mono-grams
+                          \item mono et bigrams
+                          \item mono, bi et trigrams
+                      \end{itemize}
+            \end{itemize}
+        \end{column}
+        \begin{column}{.55\textwidth}
+            \includegraphics[width=\textwidth]{CompareScores.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Meilleure classification}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.4\textwidth}
+            \begin{itemize}
+                \item Meilleur score en utilisant:
+                      \begin{itemize}
+                          \item les racines des mots
+                          \item des monograms
+                          \item le vectoriseur tf-idf
+                      \end{itemize}
+            \end{itemize}
+        \end{column}
+        \begin{column}{.6\textwidth}
+            \includegraphics[width=\textwidth]{HeatmapLabels40RacinesTfidfVectorizerMono.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Visualisation de la meilleure classification}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{tsne40RacinesTfidfVectorizerMono.pdf}
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{kmean40RacinesTfidfVectorizerMono.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
 
 \section{Classification des images}
-\subsection{Méthode}
+\subsection{Méthode : Nettoyage}
+\subsubsection{Traitement des images pour les algorithmes SIFT et ORB}
+\begin{frame}{\insertsubsection}{\insertsubsubsection}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{imgBW.pdf}
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \begin{itemize}
+                \item[$\longleftarrow$] Utilisation de niveaux de gris
+                \item[$\swarrow$] Équalisation de l'histogramme
+                \item[$\downarrow$] Filtration de l'image
+            \end{itemize}
+        \end{column}
+    \end{columns}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{imgBWCLAHE.pdf}
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{imgBWCLAHENlMDFilt.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
 
-\subsection{Comparaison}
+\subsection{Comparaison : validation croisée}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.4\textwidth}
+            \begin{itemize}
+                \item Essais avec 5 algorithmes:
+                      \begin{itemize}
+                          \item SIFT
+                          \item ORB
+                          \item VGG16
+                          \item Xeption
+                          \item InceptionV3
+                      \end{itemize}
+            \end{itemize}
+        \end{column}
+        \begin{column}{.6\textwidth}
+            \includegraphics[width=\textwidth]{CompareIMGScores.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Meilleure classification}
+\begin{frame}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            Meilleure classification avec : InceptionV3
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{HeatmapLabels40IV3.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Visualisation de la meilleure classification}
+\begin{frame}{\insertsubsection}
+\begin{columns}
+    \begin{column}{.5\textwidth}
+        \includegraphics[width=\textwidth]{tsne50IV3.pdf}
+    \end{column}
+    \begin{column}{.5\textwidth}
+        \includegraphics[width=\textwidth]{kmean50IV3.pdf}
+    \end{column}
+\end{columns}
+\end{frame}
+
 
 \section{Classification de l'ensemble des données}
+
+\subsection{Méthode}
+\begin{frame}{\insertsubsection}
+\begin{itemize}
+    \item Combination de la matrice "bag of words" pour la meilleure classification du texte avec la matrice "bag of visual words" pour la meilleure classification des images
+    \item[]
+    \item Essais avec plusieurs valeurs de composantes utilisées pour la PCA afin d'affiner la classification
+\end{itemize}
+\end{frame}
 
 \section{Conclusion}
 \end{document}
