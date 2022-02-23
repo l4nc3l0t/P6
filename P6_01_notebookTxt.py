@@ -215,7 +215,7 @@ if write_data is True:
     fig.write_image('./Figures/FreqTok50.pdf')
 FullTok, FreqTokFull, fig = visuWordList(TokensStopW)
 if write_data is True:
-    fig.write_image('./Figures/FreqTok50.pdf')
+    fig.write_image('./Figures/FreqTok50.pdf', height=200)
 
 # %% [markdown]
 # Nous allons retirer les mots ayant plus de 400 occurences (> 0,8%)
@@ -244,7 +244,7 @@ for r in range(len(TextData)):
 FullLem, FreqLemFull, fig = visuWordList(Lems, 'Lemmes')
 fig.show(renderer='notebook')
 if write_data is True:
-    fig.write_image('./Figures/FreqLem50.pdf')
+    fig.write_image('./Figures/FreqLem50.pdf', height=200)
 
 # %% [markdown]
 # Nous allons supprimer le lemme ayant plus de 500 occurences (> 1.3%)
@@ -271,7 +271,7 @@ for r in range(len(TextData)):
 FullStem, FreqStemFull, fig = visuWordList(Stems, 'Racines')
 fig.show(renderer='notebook')
 if write_data is True:
-    fig.write_image('./Figures/FreqStem50.pdf')
+    fig.write_image('./Figures/FreqStem50.pdf', height=200)
 # %% [markdown]
 # Nous allons supprimer le stemme ayant plus de 500 occurences (> 1.3%)
 # %%
