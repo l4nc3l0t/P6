@@ -298,14 +298,14 @@
 
 \subsection{Visualisation de la meilleure classification}
 \begin{frame}{\insertsubsection}
-\begin{columns}
-    \begin{column}{.5\textwidth}
-        \includegraphics[width=\textwidth]{tsne50IV3.pdf}
-    \end{column}
-    \begin{column}{.5\textwidth}
-        \includegraphics[width=\textwidth]{kmean50IV3.pdf}
-    \end{column}
-\end{columns}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{tsne50IV3.pdf}
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \includegraphics[width=\textwidth]{kmean50IV3.pdf}
+        \end{column}
+    \end{columns}
 \end{frame}
 
 
@@ -313,11 +313,11 @@
 
 \subsection{Méthode}
 \begin{frame}{\insertsubsection}
-\begin{itemize}
-    \item Combination de la matrice "bag of words" pour la meilleure classification du texte avec la matrice "bag of visual words" pour la meilleure classification des images
-    \item[]
-    \item Essais avec plusieurs valeurs de composantes utilisées pour la PCA afin d'affiner la classification
-\end{itemize}
+    \begin{itemize}
+        \item Combination de la matrice "bag of words" pour la meilleure classification du texte avec la matrice "bag of visual words" pour la meilleure classification des images
+        \item[]
+        \item Essais avec plusieurs valeurs de composantes utilisées pour la PCA afin d'affiner la classification
+    \end{itemize}
 \end{frame}
 
 \subsection{Comparaison}
@@ -361,6 +361,17 @@
     \end{columns}
 \end{frame}
 
-
 \section{Conclusion}
+\begin{frame}
+    \begin{itemize}
+        \item Classification des données séparées moyenne
+              \begin{itemize}
+                  \item ARI légèrement supérieure à 0,5 dans les deux cas
+              \end{itemize}
+        \item[]
+        \item La combinaison des deux types de données n'améliore pas significativement le score
+        \item[]
+        \item Il pourrai être intéressant d'effectuer une classification supervisée à partir des catégories déjà assignées afin d'afiner le classement 
+    \end{itemize}
+\end{frame}
 \end{document}
