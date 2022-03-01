@@ -363,6 +363,32 @@
     \end{columns}
 \end{frame}
 
+\section{Comparaison des différentes classifications}
+\subsection{Matrices de corrélations}
+\begin{frame}{\insertsection}{\insertsubsection}
+    \begin{columns}
+        \begin{column}{.33\textwidth}
+            Classification à partir des données textuelles uniquement
+            \includegraphics[width=\textwidth]{HeatmapLabels40RacinesTfidfVectorizerMono.pdf}
+        \end{column}
+        \begin{column}{.33\textwidth}
+            Classification à partir des images uniquements
+            \includegraphics[width=\textwidth]{HeatmapLabels40IV3.pdf}
+        \end{column}
+        \begin{column}{.33\textwidth}
+            Classification à partir de toutes les données
+            \includegraphics[width=\textwidth]{HeatmapLabels60StemtfidfMonoIV3150.pdf}
+        \end{column}
+    \end{columns}
+    \begin{itemize}
+        \item[]
+        \item Les images permettent d'éviter les classifications aberrantes comme la confusion entre produits informatiques et produits pour bébé avec le texte uniquement
+        \item Confusion entre les fournitures de maison et les produits pour bébé avec les données d'image uniquement qui se répercute lors de l'utilisation des données complètes
+        \item Difficulté à classifier les produits de décoration et de fête (Home Decor \& Festive Needs)
+    \end{itemize}
+\end{frame}
+
+
 \section{Conclusion}
 \begin{frame}
     \begin{itemize}
@@ -371,9 +397,13 @@
                   \item ARI légèrement supérieure à 0,5 dans les deux cas
               \end{itemize}
         \item[]
-        \item La combinaison des deux types de données n'améliore pas significativement le score
+        \item La combinaison des deux types de données n'améliore pas significativement le score mais evite les classements aberrants (mélanges entre informatique et produits pour bébé avec le texte uniquement)
         \item[]
-        \item Il pourrai être intéressant d'effectuer une classification supervisée à partir des catégories déjà assignées afin d'afiner le classement 
+        \item Il pourrai être intéressant d'effectuer une classification supervisée à partir des catégories déjà assignées afin d'afiner le classement
+        \item[]
+        \item Il pourrait aussi utiliser des mots clés dans les descriptions qui permettraient de positionner sans ambiguité certains produits difficiles à classer avec les images
+        \item[]
+        \item Il peut aussi revoir les catégories afin d'améliorer le classement automatique
     \end{itemize}
 \end{frame}
 \end{document}
