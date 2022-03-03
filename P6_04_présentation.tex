@@ -28,6 +28,7 @@
 \usepackage{multicol}
     \newcolumntype{L}{>{\raggedright\arraybackslash}X}
     \newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+\usepackage{xcolor}
 \usepackage{tikz}
 \usetikzlibrary{graphs, graphdrawing, arrows.meta} \usegdlibrary{layered, trees}
 \usetikzlibrary{overlay-beamer-styles}
@@ -108,7 +109,8 @@
                       \end{itemize}
             \end{itemize}
             \begin{table}
-                \input{./Tableaux/dataCol.tex}
+                \only<1>{\input{./Tableaux/dataCol.tex}}
+                \only<2>{\input{./Tableaux/dataColRed.tex}}
             \end{table}
         \end{column}
         \begin{column}{.5\textwidth}

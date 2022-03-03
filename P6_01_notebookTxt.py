@@ -55,9 +55,19 @@ data = pd.read_csv('./flipkart_com-ecommerce_sample_1050.csv')
 # %%
 data.info()
 if write_data is True:
-    pd.DataFrame(data.columns.to_list(),
-                 columns=['Données']).to_latex('./Tableaux/dataCol.tex',
-                                               index=False)
+    colList = pd.DataFrame(data.columns.to_list(), columns=['Données'])
+    colList['Données'] = colList['Données'].str.replace('_', '\_')
+    colList.style.hide(axis='index').to_latex('./Tableaux/dataCol.tex',
+                                              hrules=True)
+
+
+    for name in ['product\_category\_tree', 'pid', 'image', 'description']:
+        colList[colList['Données'] == name] = colList[
+        colList['Données'] == name].replace(name, '\color{red} ' + name)
+
+    colList.style.hide(axis='index').to_latex(
+        './Tableaux/dataColRed.tex', hrules=True)
+
 # %%
 CategoryTree = data.product_category_tree.str.slice(
     start=2, stop=-2).str.split(' >> ', expand=True)
