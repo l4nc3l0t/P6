@@ -198,6 +198,11 @@
                           \item mono et bigrams
                           \item mono, bi et trigrams
                       \end{itemize}
+                \item[]
+                \item Essais de différentes perplexités :
+                      \begin{itemize}
+                          \item de 20 à 60 par pas de 10
+                      \end{itemize}
             \end{itemize}
         \end{column}
         \begin{column}{.55\textwidth}
@@ -230,10 +235,16 @@
 \begin{frame}{\insertsubsection}
     \begin{columns}
         \begin{column}{.5\textwidth}
-            \includegraphics[width=\textwidth]{tsne40RacinesTfidfVectorizerMono.pdf}
+            \begin{figure}
+                \includegraphics[width=\textwidth]{tsne40RacinesTfidfVectorizerMono.pdf}
+                \caption{Visualisation par t-SNE des catégories réelles lors de la classification des données textuelles}
+            \end{figure}
         \end{column}
         \begin{column}{.5\textwidth}
-            \includegraphics[width=\textwidth]{kmean40RacinesTfidfVectorizerMono.pdf}
+            \begin{figure}
+                \includegraphics[width=\textwidth]{kmean40RacinesTfidfVectorizerMono.pdf}
+                \caption{Visualisation par t-SNE des catégories prédites lors de la classification des données textuelles}
+            \end{figure}
         \end{column}
     \end{columns}
 \end{frame}
@@ -264,6 +275,52 @@
     \end{columns}
 \end{frame}
 
+\subsection{Méthode : Création de "bags of visuals words" (BoVW)}
+\subsubsection{Algorithmes SIFT et ORB}
+\begin{frame}{\insertsubsection}{\insertsubsubsection}
+    \begin{center}
+        \tikz [rounded corners, every node/.style={anchor=west}, level sep = 5mm, >={Stealth}]
+        \graph [layered layout, grow=right, nodes={draw, font=\footnotesize}, head anchor=west, tail anchor=east,
+            edges=rounded corners, sibling distance=5mm]{
+            Images -> Détection des descripteurs -> Clustering des descripteurs afin de retenir 1000 "visuals words" -> BoVW};
+    \end{center}
+    \begin{columns}
+        \begin{column}{.5\textwidth}
+            \begin{figure}
+                \includegraphics[width=.9\textwidth]{SIFTimgKP.pdf}
+                \caption{Exemple de descripteurs avec l'algorithme SIFT}
+            \end{figure}
+        \end{column}
+        \begin{column}{.5\textwidth}
+            \begin{figure}
+                \includegraphics[width=.9\textwidth]{ORBimgKP.pdf}
+                \caption{Exemple de descripteurs avec l'algorithme ORB}
+            \end{figure}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Méthode : Transfert learning - extraction de features}
+\subsubsection{Algorithmes VGG, Xeption et InceptionV3}
+\begin{frame}{\insertsubsection}{\insertsubsubsection}
+    \begin{itemize}
+        \item Pour ces algorithmes nous n'avons pas à créer nos propres "visuals words"
+        \item[]
+        \item Utilisation de réseaux de neurones convolutifs
+        \item[]
+        \item Les "visuals words" ont été détectés sur un jeu d'images très conséquent : ImageNet
+        \item[]
+        \item Nos images sont classées à partir de ces algorithmes pré-entrainés par extraction de features (transfert learning)
+    \end{itemize}
+    \vspace{.5cm}
+    \begin{center}
+        \tikz [rounded corners, every node/.style={anchor=west}, level sep = 5mm, >={Stealth}]
+        \graph [layered layout, grow=right, nodes={draw, font=\footnotesize}, head anchor=west, tail anchor=east,
+            edges=rounded corners, sibling distance=5mm]{
+            Images -> Transfert learning -> Classification à partir des "visuals words" préentrainés};
+    \end{center}
+\end{frame}
+
 \subsection{Comparaison}
 \begin{frame}{\insertsubsection}
     \begin{columns}
@@ -276,6 +333,11 @@
                           \item VGG16
                           \item Xeption
                           \item InceptionV3
+                      \end{itemize}
+                \item[]
+                \item Essais de différentes perplexités :
+                      \begin{itemize}
+                          \item de 30 à 60 par pas de 10
                       \end{itemize}
             \end{itemize}
         \end{column}
@@ -304,10 +366,16 @@
 \begin{frame}{\insertsubsection}
     \begin{columns}
         \begin{column}{.5\textwidth}
-            \includegraphics[width=\textwidth]{tsne50IV3.pdf}
+            \begin{figure}
+                \includegraphics[width=\textwidth]{tsne50IV3.pdf}
+                \caption{Visualisation par t-SNE des catégories réelles lors de la classification des images}
+            \end{figure}
         \end{column}
         \begin{column}{.5\textwidth}
-            \includegraphics[width=\textwidth]{kmean50IV3.pdf}
+            \begin{figure}
+                \includegraphics[width=\textwidth]{kmean50IV3.pdf}
+                \caption{Visualisation par t-SNE des catégories prédites lors de la classification des images}
+            \end{figure}
         \end{column}
     \end{columns}
 \end{frame}
@@ -357,10 +425,16 @@
 \begin{frame}{\insertsubsection}
     \begin{columns}
         \begin{column}{.5\textwidth}
-            \includegraphics[width=\textwidth]{tsne60StemtfidfMonoIV3150.pdf}
+            \begin{figure}
+                \includegraphics[width=\textwidth]{tsne60StemtfidfMonoIV3150.pdf}
+                \caption{Visualisation par t-SNE des catégories réelles lors de la classification de l'ensemble des données}
+            \end{figure}
         \end{column}
         \begin{column}{.5\textwidth}
-            \includegraphics[width=\textwidth]{kmean60StemtfidfMonoIV3150.pdf}
+            \begin{figure}
+                \includegraphics[width=\textwidth]{kmean60StemtfidfMonoIV3150.pdf}
+                \caption{Visualisation par t-SNE des catégories prédites lors de la classification de l'ensemble des données}
+            \end{figure}
         \end{column}
     \end{columns}
 \end{frame}
@@ -368,17 +442,29 @@
 \section{Comparaison des différentes classifications}
 \subsection{Matrices de corrélations}
 \begin{frame}{\insertsection}{\insertsubsection}
-    \begin{columns}
+    \begin{columns}[t]
         \begin{column}{.33\textwidth}
             Classification à partir des données textuelles uniquement
+
+            ARI = 0,525
+            \vspace{.2cm}
+
             \includegraphics[width=\textwidth]{HeatmapLabels40RacinesTfidfVectorizerMono.pdf}
         \end{column}
         \begin{column}{.33\textwidth}
             Classification à partir des images uniquements
+
+            ARI = 0,535
+            \vspace{.2cm}
+
             \includegraphics[width=\textwidth]{HeatmapLabels40IV3.pdf}
         \end{column}
         \begin{column}{.33\textwidth}
             Classification à partir de toutes les données
+
+            ARI = 0,536
+            \vspace{.2cm}
+
             \includegraphics[width=\textwidth]{HeatmapLabels60StemtfidfMonoIV3150.pdf}
         \end{column}
     \end{columns}
